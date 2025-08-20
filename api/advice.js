@@ -22,16 +22,44 @@ module.exports = withCors(async (req, res) => {
 
   try {
     const body = req.body || {};
-    const incoming = Array.isArray(body.messages) ? body.messages : [];
+    const { messages = [], member = null, cabinet = '' } = body;
+    
+    console.log('CHAT inbound body:', JSON.stringify(body));
 
     // Normalize messages to plain transcript
-    const transcript = incoming
+    const transcript = messages
       .map((m) => `${m.role || "user"}: ${m.text ?? m.content ?? ""}`)
       .join("\n");
 
-    const prompt =
-      "You are a careful, non-diagnostic health assistant. Offer short, safe, informational guidance. " +
-      "Do not prescribe. Suggest OTC options only when appropriate and mention common contraindications briefly.";
+    const prompt = `You are an AI health assistant providing informational, non-diagnostic guidance.
+
+CRITICAL INSTRUCTIONS - YOU MUST FOLLOW THIS EXACT FORMAT:
+
+1. ALWAYS start by checking the user's medicine cabinet FIRST
+2. If they have suitable medicine for their symptoms, list it FIRST with dosage and usage notes
+3. Only then suggest over-the-counter options to buy if needed
+4. Consider the family member's age, weight, allergies, and conditions
+
+REQUIRED RESPONSE STRUCTURE:
+**From Your Cabinet:**
+- [List each suitable medicine with dosage and brief usage notes]
+
+**If Buying from Pharmacy:**
+- [Only list if nothing suitable in cabinet or as alternatives]
+
+**Safety Notes:**
+- [Brief cautions and when to see a doctor]
+
+EXAMPLE: If user says "I have a headache" and their cabinet has "Nurofen 400 — Pain releif — for: Headache — Qty 20 — suitable", you MUST start with:
+"**From Your Cabinet:**
+- Nurofen 400mg: Take 1-2 tablets every 4-6 hours as needed for headache relief. You have 20 tablets available."
+
+Family member: ${member ? JSON.stringify(member) : 'unknown'}
+Medicine cabinet list (each line is one item):\n${cabinet}
+
+Remember: ALWAYS check their cabinet first and suggest their existing medicines before anything else!`;
+
+    console.log('CHAT PROMPT BEING SENT TO OPENAI:', prompt);
 
     // Call OpenAI Responses API (text-only request)
     const r = await fetch("https://api.openai.com/v1/responses", {
@@ -68,6 +96,9 @@ module.exports = withCors(async (req, res) => {
       data.output?.[0]?.content?.[0]?.text ||
       (data.choices && data.choices[0]?.message?.content) ||
       "";
+
+    console.log('CHAT OpenAI response:', JSON.stringify(data));
+    console.log('CHAT extracted reply:', reply);
 
     return res.status(200).json({ reply: String(reply || "").trim() });
   } catch (e) {
