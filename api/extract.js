@@ -138,6 +138,8 @@ export default async function handler(req, res) {
       console.log('Medicine extraction request received with', body.images.length, 'images');
       console.log('Request body keys:', Object.keys(body));
       console.log('Images array length:', body.images?.length);
+      console.log('First image preview:', body.images[0]?.substring(0, 100) + '...');
+      console.log('Image data type:', typeof body.images[0]);
       
       try {
         console.log('Checking OpenAI API key...');
@@ -227,13 +229,28 @@ CRITICAL:
 LOOK AT THE IMAGES AND TELL ME EXACTLY WHAT YOU SEE WRITTEN ON THE PACKAGE. DO NOT USE ANY MEDICAL KNOWLEDGE TO FILL IN MISSING INFORMATION.`;
 
         console.log('Sending request to OpenAI...');
+        
+        // Format images for OpenAI Vision API
+        const formattedImages = body.images.map(imageData => ({
+          type: "image_url",
+          image_url: {
+            url: imageData
+          }
+        }));
+        
+        console.log('Formatted images for OpenAI:', formattedImages.length);
+        
         const response = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-            { role: 'assistant', content: 'I understand. I will look at the images carefully and only extract what I can actually see written on the package. I will not guess or use medical knowledge to fill in missing information.' },
-            { role: 'user', content: 'Perfect. Now analyze the images and extract ONLY the visible text. Remember: if you see "Strepfen", say "Strepfen" - not "Ibuprofen".' }
+            { 
+              role: 'user', 
+              content: [
+                { type: 'text', text: userPrompt },
+                ...formattedImages
+              ]
+            }
           ],
           max_tokens: 1000,
           temperature: 0.0, // Zero temperature for maximum consistency
