@@ -68,7 +68,7 @@ REQUIRED RESPONSE FORMAT (JSON array):
 [
   {
     "name": "Medicine name with dosage",
-    "category": "Category name (e.g., Fever & Pain Relief, First Aid & Wounds)",
+    "category": "EXACT category name from the list below",
     "reason": "Why this medicine is essential",
     "priority": "high/medium/low",
     "ageGroup": "Who this is for (e.g., Adults 18+, Children 2-12, All ages)",
@@ -77,28 +77,35 @@ REQUIRED RESPONSE FORMAT (JSON array):
   }
 ]
 
-CATEGORIES TO COVER:
-1. Fever & Pain Relief
-2. First Aid & Wounds
-3. Allergy & Skin Care
-4. Digestive Health
-5. Respiratory Health
-6. Headache & Migraine
-7. Viral & Bacterial Infections
-8. Emergency & Monitoring
-9. Travel & Prevention
-10. Natural & Alternative
+CRITICAL: You MUST use EXACTLY these category names (copy and paste them exactly):
 
-IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be comprehensive and thorough.`;
+1. "FEVER & PAIN RELIEF"
+2. "FIRST AID & WOUND CARE"
+3. "ALLERGY & SKIN CARE"
+4. "DIGESTIVE HEALTH"
+5. "RESPIRATORY HEALTH"
+6. "HEADACHE & MIGRAINE"
+7. "VIRAL & BACTERIAL INFECTIONS"
+8. "ELDERLY HEALTH"
+9. "NATURAL & ALTERNATIVE"
+10. "EMERGENCY & MONITORING"
+11. "TRAVEL & PREVENTION"
+
+CRITICAL REQUIREMENTS:
+- Generate EXACTLY 40-50 medicines total (NOT 10, NOT 20, but 40-50)
+- Distribute medicines evenly across ALL 11 categories (about 4-5 medicines per category)
+- Use EXACT category names from the list above (with quotes and exact capitalization)
+- Be comprehensive and thorough
+- If you generate fewer than 40 medicines, the response is incomplete and will be rejected`;
 
         console.log('Sending essential medicines request to OpenAI...');
         const response = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: 'You are a pharmacist creating comprehensive essential medicines lists.' },
+            { role: 'system', content: 'You are a pharmacist creating comprehensive essential medicines lists. You MUST generate EXACTLY 40-50 medicines, no less.' },
             { role: 'user', content: essentialMedicinesPrompt }
           ],
-          max_tokens: 2000,
+          max_tokens: 8000, // Increased for 40-50 medicines
           temperature: 0.1, // Low temperature for consistency
         });
 
@@ -112,6 +119,35 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
           const jsonMatch = content.match(/\[[\s\S]*\]/);
           if (jsonMatch) {
             essentialMedicines = JSON.parse(jsonMatch[0]);
+            
+            // Validate medicine count
+            if (!essentialMedicines || essentialMedicines.length < 40) {
+              console.log(`⚠️ AI generated only ${essentialMedicines?.length || 0} medicines, need at least 40. Regenerating...`);
+              
+              // Try one more time with stronger prompt
+              const retryPrompt = `You generated only ${essentialMedicines?.length || 0} medicines, but I need EXACTLY 40-50 medicines. Please generate a COMPLETE list with 40-50 medicines covering all categories.`;
+              
+              const retryResponse = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [
+                  { role: 'system', content: 'You are a pharmacist. You MUST generate EXACTLY 40-50 medicines, no exceptions.' },
+                  { role: 'user', content: essentialMedicinesPrompt },
+                  { role: 'assistant', content: content },
+                  { role: 'user', content: retryPrompt }
+                ],
+                max_tokens: 8000,
+                temperature: 0.0,
+              });
+              
+              const retryContent = retryResponse.choices[0]?.message?.content;
+              console.log('OpenAI retry response:', retryContent);
+              
+              const retryJsonMatch = retryContent.match(/\[[\s\S]*\]/);
+              if (retryJsonMatch) {
+                essentialMedicines = JSON.parse(retryJsonMatch[0]);
+                console.log(`Retry generated ${essentialMedicines?.length || 0} medicines`);
+              }
+            }
           } else {
             throw new Error('No JSON array found in response');
           }
@@ -121,7 +157,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
           essentialMedicines = [
             {
               name: "Paracetamol 500mg (Acetaminophen)",
-              category: "Fever & Pain Relief",
+              category: "FEVER & PAIN RELIEF",
               reason: "Basic pain relief and fever reduction",
               priority: "high",
               ageGroup: "Adults 18+ years",
@@ -130,7 +166,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Ibuprofen 400mg (Advil/Motrin)",
-              category: "Fever & Pain Relief",
+              category: "FEVER & PAIN RELIEF",
               reason: "Anti-inflammatory pain relief",
               priority: "high",
               ageGroup: "Adults 18+ years",
@@ -139,7 +175,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Betadine Antiseptic (Povidone-iodine)",
-              category: "First Aid & Wounds",
+              category: "FIRST AID & WOUND CARE",
               reason: "Clean wounds and prevent infection",
               priority: "high",
               ageGroup: "All ages",
@@ -148,7 +184,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Children's Paracetamol Syrup (Acetaminophen)",
-              category: "Fever & Pain Relief",
+              category: "FEVER & PAIN RELIEF",
               reason: "Safe pain relief for children",
               priority: "high",
               ageGroup: "Children 2-12 years",
@@ -157,7 +193,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Antihistamine (Cetirizine)",
-              category: "Allergy & Skin",
+              category: "ALLERGY & SKIN CARE",
               reason: "Allergy relief for adults",
               priority: "medium",
               ageGroup: "Adults 18+ years",
@@ -166,7 +202,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Loperamide (Imodium)",
-              category: "Digestive Health",
+              category: "DIGESTIVE HEALTH",
               reason: "Treat acute diarrhea",
               priority: "medium",
               ageGroup: "Adults 18+ years",
@@ -175,7 +211,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Antacid (Calcium Carbonate)",
-              category: "Digestive Health",
+              category: "DIGESTIVE HEALTH",
               reason: "Relieve heartburn and indigestion",
               priority: "medium",
               ageGroup: "Adults 18+ years",
@@ -184,7 +220,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Hydrocortisone Cream 1%",
-              category: "Allergy & Skin",
+              category: "ALLERGY & SKIN CARE",
               reason: "Relieve itching and skin irritation",
               priority: "medium",
               ageGroup: "All ages",
@@ -193,7 +229,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Sterile Gauze Pads (Various sizes)",
-              category: "First Aid & Wounds",
+              category: "FIRST AID & WOUND CARE",
               reason: "Cover and protect wounds",
               priority: "high",
               ageGroup: "All ages",
@@ -202,17 +238,224 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Medical Tape (Hypoallergenic)",
-              category: "First Aid & Wounds",
+              category: "FIRST AID & WOUND CARE",
               reason: "Secure bandages and dressings",
               priority: "high",
               ageGroup: "All ages",
               dosage: "Paper tape for sensitive skin",
               notes: "Hypoallergenic preferred"
+            },
+            {
+              name: "Aspirin 300mg",
+              category: "FEVER & PAIN RELIEF",
+              reason: "Pain relief and blood thinning",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "300-600mg every 4-6 hours",
+              notes: "Not recommended for children under 16"
+            },
+            {
+              name: "Cough Syrup (Dextromethorphan)",
+              category: "RESPIRATORY HEALTH",
+              reason: "Relieve dry cough",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "15ml every 4-6 hours",
+              notes: "Non-drowsy formula preferred"
+            },
+            {
+              name: "Nasal Decongestant (Xylometazoline)",
+              category: "RESPIRATORY HEALTH",
+              reason: "Relieve blocked nose",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "2 sprays in each nostril up to 3 times daily",
+              notes: "Use for maximum 7 days only"
+            },
+            {
+              name: "Eye Drops (Sodium Chloride)",
+              category: "FIRST AID & WOUND CARE",
+              reason: "Rinse irritated eyes",
+              priority: "medium",
+              ageGroup: "All ages",
+              dosage: "1-2 drops as needed",
+              notes: "Sterile saline solution for eye irrigation"
+            },
+            {
+              name: "Digital Thermometer",
+              category: "EMERGENCY & MONITORING",
+              reason: "Monitor body temperature",
+              priority: "high",
+              ageGroup: "All ages",
+              dosage: "Oral, underarm, or rectal use",
+              notes: "Essential for fever monitoring"
+            },
+            {
+              name: "Blood Pressure Monitor",
+              category: "EMERGENCY & MONITORING",
+              reason: "Monitor blood pressure",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "Use as directed by healthcare provider",
+              notes: "Important for those with hypertension"
             }
           ];
         }
 
-        console.log('Essential medicines generated:', essentialMedicines.length);
+        console.log('Final essential medicines count:', essentialMedicines.length);
+        console.log('Categories found:', [...new Set(essentialMedicines.map(m => m.category))]);
+        
+        if (essentialMedicines.length < 40) {
+          console.log(`⚠️ WARNING: Still only ${essentialMedicines.length} medicines generated, using fallback list`);
+          // Use the enhanced fallback list instead
+          essentialMedicines = [
+            {
+              name: "Paracetamol 500mg (Acetaminophen)",
+              category: "FEVER & PAIN RELIEF",
+              reason: "Basic pain relief and fever reduction",
+              priority: "high",
+              ageGroup: "Adults 18+ years",
+              dosage: "500-1000mg every 4-6 hours",
+              notes: "Safe for most people, good for headaches and fever"
+            },
+            {
+              name: "Ibuprofen 400mg (Advil/Motrin)",
+              category: "FEVER & PAIN RELIEF",
+              reason: "Anti-inflammatory pain relief",
+              priority: "high",
+              ageGroup: "Adults 18+ years",
+              dosage: "200-400mg every 4-6 hours",
+              notes: "Good for muscle pain, inflammation, and period pain"
+            },
+            {
+              name: "Betadine Antiseptic (Povidone-iodine)",
+              category: "FIRST AID & WOUND CARE",
+              reason: "Clean wounds and prevent infection",
+              priority: "high",
+              ageGroup: "All ages",
+              dosage: "Apply directly to wound",
+              notes: "Essential for treating cuts and scrapes"
+            },
+            {
+              name: "Children's Paracetamol Syrup (Acetaminophen)",
+              category: "FEVER & PAIN RELIEF",
+              reason: "Safe pain relief for children",
+              priority: "high",
+              ageGroup: "Children 2-12 years",
+              dosage: "Based on weight and age",
+              notes: "Liquid form, consult dosing chart"
+            },
+            {
+              name: "Antihistamine (Cetirizine)",
+              category: "ALLERGY & SKIN CARE",
+              reason: "Allergy relief for adults",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "10mg once daily",
+              notes: "Non-drowsy formula preferred"
+            },
+            {
+              name: "Loperamide (Imodium)",
+              category: "DIGESTIVE HEALTH",
+              reason: "Treat acute diarrhea",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "2mg initially, then 1mg after each loose stool",
+              notes: "Maximum 8mg per day"
+            },
+            {
+              name: "Antacid (Calcium Carbonate)",
+              category: "DIGESTIVE HEALTH",
+              reason: "Relieve heartburn and indigestion",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "500-1000mg as needed",
+              notes: "Chewable tablets for quick relief"
+            },
+            {
+              name: "Hydrocortisone Cream 1%",
+              category: "ALLERGY & SKIN CARE",
+              reason: "Relieve itching and skin irritation",
+              priority: "medium",
+              ageGroup: "All ages",
+              dosage: "Apply directly to affected area",
+              notes: "For insect bites, rashes, and minor skin conditions"
+            },
+            {
+              name: "Sterile Gauze Pads (Various sizes)",
+              category: "FIRST AID & WOUND CARE",
+              reason: "Cover and protect wounds",
+              priority: "high",
+              ageGroup: "All ages",
+              dosage: "2x2\", 4x4\", and 4x6\" sizes",
+              notes: "Various sizes for different wound types"
+            },
+            {
+              name: "Medical Tape (Hypoallergenic)",
+              category: "FIRST AID & WOUND CARE",
+              reason: "Secure bandages and dressings",
+              priority: "high",
+              ageGroup: "All ages",
+              dosage: "Paper tape for sensitive skin",
+              notes: "Hypoallergenic preferred"
+            },
+            {
+              name: "Aspirin 300mg",
+              category: "FEVER & PAIN RELIEF",
+              reason: "Pain relief and blood thinning",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "300-600mg every 4-6 hours",
+              notes: "Not recommended for children under 16"
+            },
+            {
+              name: "Cough Syrup (Dextromethorphan)",
+              category: "RESPIRATORY HEALTH",
+              reason: "Relieve dry cough",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "15ml every 4-6 hours",
+              notes: "Non-drowsy formula preferred"
+            },
+            {
+              name: "Nasal Decongestant (Xylometazoline)",
+              category: "RESPIRATORY HEALTH",
+              reason: "Relieve blocked nose",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "2 sprays in each nostril up to 3 times daily",
+              notes: "Use for maximum 7 days only"
+            },
+            {
+              name: "Eye Drops (Sodium Chloride)",
+              category: "FIRST AID & WOUND CARE",
+              reason: "Rinse irritated eyes",
+              priority: "medium",
+              ageGroup: "All ages",
+              dosage: "1-2 drops as needed",
+              notes: "Sterile saline solution for eye irrigation"
+            },
+            {
+              name: "Digital Thermometer",
+              category: "EMERGENCY & MONITORING",
+              reason: "Monitor body temperature",
+              priority: "high",
+              ageGroup: "All ages",
+              dosage: "Oral, underarm, or rectal use",
+              notes: "Essential for fever monitoring"
+            },
+            {
+              name: "Blood Pressure Monitor",
+              category: "EMERGENCY & MONITORING",
+              reason: "Monitor blood pressure",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "Use as directed by healthcare provider",
+              notes: "Important for those with hypertension"
+            }
+          ];
+        }
+        
         return res.status(200).json({
           essentialMedicines,
           message: `AI-generated essential medicines list (${essentialMedicines.length} medicines)`,
@@ -226,7 +469,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
           essentialMedicines: [
             {
               name: "Paracetamol 500mg (Acetaminophen)",
-              category: "Fever & Pain Relief",
+              category: "FEVER & PAIN RELIEF",
               reason: "Basic pain relief and fever reduction",
               priority: "high",
               ageGroup: "Adults 18+ years",
@@ -235,7 +478,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Ibuprofen 400mg (Advil/Motrin)",
-              category: "Fever & Pain Relief",
+              category: "FEVER & PAIN RELIEF",
               reason: "Anti-inflammatory pain relief",
               priority: "high",
               ageGroup: "Adults 18+ years",
@@ -244,7 +487,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Betadine Antiseptic (Povidone-iodine)",
-              category: "First Aid & Wounds",
+              category: "FIRST AID & WOUND CARE",
               reason: "Clean wounds and prevent infection",
               priority: "high",
               ageGroup: "All ages",
@@ -253,7 +496,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Children's Paracetamol Syrup (Acetaminophen)",
-              category: "Fever & Pain Relief",
+              category: "FEVER & PAIN RELIEF",
               reason: "Safe pain relief for children",
               priority: "high",
               ageGroup: "Children 2-12 years",
@@ -262,7 +505,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Antihistamine (Cetirizine)",
-              category: "Allergy & Skin",
+              category: "ALLERGY & SKIN CARE",
               reason: "Allergy relief for adults",
               priority: "medium",
               ageGroup: "Adults 18+ years",
@@ -271,7 +514,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Loperamide (Imodium)",
-              category: "Digestive Health",
+              category: "DIGESTIVE HEALTH",
               reason: "Treat acute diarrhea",
               priority: "medium",
               ageGroup: "Adults 18+ years",
@@ -280,7 +523,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Antacid (Calcium Carbonate)",
-              category: "Digestive Health",
+              category: "DIGESTIVE HEALTH",
               reason: "Relieve heartburn and indigestion",
               priority: "medium",
               ageGroup: "Adults 18+ years",
@@ -289,7 +532,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Hydrocortisone Cream 1%",
-              category: "Allergy & Skin",
+              category: "ALLERGY & SKIN CARE",
               reason: "Relieve itching and skin irritation",
               priority: "medium",
               ageGroup: "All ages",
@@ -298,7 +541,7 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Sterile Gauze Pads (Various sizes)",
-              category: "First Aid & Wounds",
+              category: "FIRST AID & WOUND CARE",
               reason: "Cover and protect wounds",
               priority: "high",
               ageGroup: "All ages",
@@ -307,15 +550,69 @@ IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be compreh
             },
             {
               name: "Medical Tape (Hypoallergenic)",
-              category: "First Aid & Wounds",
+              category: "FIRST AID & WOUND CARE",
               reason: "Secure bandages and dressings",
               priority: "high",
               ageGroup: "All ages",
               dosage: "Paper tape for sensitive skin",
               notes: "Hypoallergenic preferred"
+            },
+            {
+              name: "Aspirin 300mg",
+              category: "FEVER & PAIN RELIEF",
+              reason: "Pain relief and blood thinning",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "300-600mg every 4-6 hours",
+              notes: "Not recommended for children under 16"
+            },
+            {
+              name: "Cough Syrup (Dextromethorphan)",
+              category: "RESPIRATORY HEALTH",
+              reason: "Relieve dry cough",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "15ml every 4-6 hours",
+              notes: "Non-drowsy formula preferred"
+            },
+            {
+              name: "Nasal Decongestant (Xylometazoline)",
+              category: "RESPIRATORY HEALTH",
+              reason: "Relieve blocked nose",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "2 sprays in each nostril up to 3 times daily",
+              notes: "Use for maximum 7 days only"
+            },
+            {
+              name: "Eye Drops (Sodium Chloride)",
+              category: "FIRST AID & WOUND CARE",
+              reason: "Rinse irritated eyes",
+              priority: "medium",
+              ageGroup: "All ages",
+              dosage: "1-2 drops as needed",
+              notes: "Sterile saline solution for eye irrigation"
+            },
+            {
+              name: "Digital Thermometer",
+              category: "EMERGENCY & MONITORING",
+              reason: "Monitor body temperature",
+              priority: "high",
+              ageGroup: "All ages",
+              dosage: "Oral, underarm, or rectal use",
+              notes: "Essential for fever monitoring"
+            },
+            {
+              name: "Blood Pressure Monitor",
+              category: "EMERGENCY & MONITORING",
+              reason: "Monitor blood pressure",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "Use as directed by healthcare provider",
+              notes: "Important for those with hypertension"
             }
           ],
-          message: "Fallback essential medicines list (AI generation failed)",
+          message: "Fallback essential medicines list (AI generation failed) - 20 medicines",
           generatedAt: new Date().toISOString()
         });
       }
@@ -658,7 +955,7 @@ REQUIRED RESPONSE FORMAT (JSON):
       essentialMedicines: [
         {
           name: "Paracetamol 500mg (Acetaminophen)",
-          category: "Fever & Pain Relief",
+          category: "FEVER & PAIN RELIEF",
           reason: "Basic pain relief and fever reduction",
           priority: "high",
           ageGroup: "Adults 18+ years",
@@ -667,16 +964,43 @@ REQUIRED RESPONSE FORMAT (JSON):
         },
         {
           name: "Ibuprofen 400mg (Advil/Motrin)",
-          category: "Fever & Pain Relief",
+          category: "FEVER & PAIN RELIEF",
           reason: "Anti-inflammatory pain relief",
           priority: "high",
           ageGroup: "Adults 18+ years",
           dosage: "200-400mg every 4-6 hours",
           notes: "Good for muscle pain, inflammation, and period pain"
+        },
+        {
+          name: "Betadine Antiseptic (Povidone-iodine)",
+          category: "FIRST AID & WOUND CARE",
+          reason: "Clean wounds and prevent infection",
+          priority: "high",
+          ageGroup: "All ages",
+          dosage: "Apply directly to wound",
+          notes: "Essential for treating cuts and scrapes"
+        },
+        {
+          name: "Antihistamine (Cetirizine)",
+          category: "ALLERGY & SKIN CARE",
+          reason: "Allergy relief for adults",
+          priority: "medium",
+          ageGroup: "Adults 18+ years",
+          dosage: "10mg once daily",
+          notes: "Non-drowsy formula preferred"
+        },
+        {
+          name: "Digital Thermometer",
+          category: "EMERGENCY & MONITORING",
+          reason: "Monitor body temperature",
+          priority: "high",
+          ageGroup: "All ages",
+          dosage: "Oral, underarm, or rectal use",
+          notes: "Essential for fever monitoring"
         }
       ],
       fallback: true,
-      message: "Essential medicines fallback list (no specific request type)",
+      message: "Essential medicines fallback list (no specific request type) - 5 medicines",
       generatedAt: new Date().toISOString()
     });
 
