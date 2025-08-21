@@ -166,7 +166,7 @@ CRITICAL RULES:
 
 EXAMPLE: If family has only adults, don't suggest children's medicines. If family has elderly members, include joint and heart health medicines. If family has allergies, avoid those specific medicines.
 
-Return ONLY the JSON array, no other text.`;
+CRITICAL: You must return ONLY a valid JSON array starting with [ and ending with ]. No other text, no explanations, just the JSON array.`;
 
         // Make OpenAI API call
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -178,8 +178,8 @@ Return ONLY the JSON array, no other text.`;
           body: JSON.stringify({
             model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: prompt }],
-            temperature: 0.3,
-            max_tokens: 3000
+            temperature: 0.1, // Lower temperature for more consistent JSON
+            max_tokens: 4000
           })
         });
 
@@ -193,27 +193,72 @@ Return ONLY the JSON array, no other text.`;
         const aiResponse = data.choices[0]?.message?.content;
         
         console.log('OpenAI response received, length:', aiResponse?.length || 0);
-        console.log('OpenAI response preview:', aiResponse?.substring(0, 200) + '...');
+        console.log('OpenAI response preview:', aiResponse?.substring(0, 300) + '...');
         
         if (!aiResponse) {
           throw new Error('No response from OpenAI');
         }
 
-        // Try to extract JSON from the response
-        const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) {
-          console.error('No valid JSON array found in OpenAI response');
-          console.error('Full OpenAI response:', aiResponse);
-          throw new Error('No valid JSON array found in response');
+        // Try multiple JSON extraction methods
+        let essentialMedicines = null;
+        let extractionMethod = '';
+
+        // Method 1: Look for JSON array
+        const jsonArrayMatch = aiResponse.match(/\[[\s\S]*\]/);
+        if (jsonArrayMatch) {
+          try {
+            essentialMedicines = JSON.parse(jsonArrayMatch[0]);
+            extractionMethod = 'JSON array extraction';
+          } catch (e) {
+            console.log('JSON array parsing failed:', e.message);
+          }
         }
 
-        console.log('JSON extracted, length:', jsonMatch[0].length);
-        const essentialMedicines = JSON.parse(jsonMatch[0]);
-        console.log('Essential medicines parsed successfully, count:', essentialMedicines.length);
+        // Method 2: Look for JSON object with essentialMedicines key
+        if (!essentialMedicines) {
+          const jsonObjectMatch = aiResponse.match(/\{[\s\S]*\}/);
+          if (jsonObjectMatch) {
+            try {
+              const parsed = JSON.parse(jsonObjectMatch[0]);
+              if (parsed.essentialMedicines && Array.isArray(parsed.essentialMedicines)) {
+                essentialMedicines = parsed.essentialMedicines;
+                extractionMethod = 'JSON object with essentialMedicines key';
+              }
+            } catch (e) {
+              console.log('JSON object parsing failed:', e.message);
+            }
+          }
+        }
+
+        // Method 3: Try to parse the entire response as JSON
+        if (!essentialMedicines) {
+          try {
+            const parsed = JSON.parse(aiResponse);
+            if (Array.isArray(parsed)) {
+              essentialMedicines = parsed;
+              extractionMethod = 'Full response as JSON array';
+            } else if (parsed.essentialMedicines && Array.isArray(parsed.essentialMedicines)) {
+              essentialMedicines = parsed.essentialMedicines;
+              extractionMethod = 'Full response as JSON object';
+            }
+          } catch (e) {
+            console.log('Full response parsing failed:', e.message);
+          }
+        }
+
+        if (!essentialMedicines || !Array.isArray(essentialMedicines)) {
+          console.error('Failed to extract essential medicines from AI response');
+          console.error('AI Response:', aiResponse);
+          throw new Error('Could not extract valid essential medicines array from AI response');
+        }
+
+        console.log(`Essential medicines extracted successfully using method: ${extractionMethod}`);
+        console.log('Essential medicines count:', essentialMedicines.length);
         
         return res.status(200).json({
           essentialMedicines,
           message: `AI-generated essential medicines list for ${familyMembers.length} family member(s)`,
+          extractionMethod,
           generatedAt: new Date().toISOString()
         });
 
@@ -246,34 +291,78 @@ Return ONLY the JSON array, no other text.`;
               ageGroup: "Adults 18+ years",
               dosage: "200-400mg every 4-6 hours",
               notes: "Good for muscle pain, inflammation, and period pain"
-            }
-          );
-        }
-        
-        if (hasChildren) {
-          fallbackMedicines.push(
+            },
             {
-              name: "Children's Paracetamol Syrup (Acetaminophen)",
-              category: "Fever & Pain Relief",
-              reason: "Safe pain relief for children",
+              name: "Betadine Antiseptic (Povidone-iodine)",
+              category: "First Aid & Wounds",
+              reason: "Clean wounds and prevent infection",
               priority: "high",
-              ageGroup: "Children 2-12 years",
-              dosage: "Based on weight and age",
-              notes: "Liquid form, consult dosing chart"
-            }
-          );
-        }
-        
-        if (hasElderly) {
-          fallbackMedicines.push(
+              ageGroup: "Adults 18+ years",
+              dosage: "Apply directly to wound",
+              notes: "Essential for treating cuts and scrapes"
+            },
             {
-              name: "Aspirin 81mg (Low Dose)",
-              category: "Heart Health",
-              reason: "Heart health for elderly family members",
+              name: "Sterile Gauze Pads (Various sizes)",
+              category: "First Aid & Wounds",
+              reason: "Cover and protect wounds",
+              priority: "high",
+              ageGroup: "Adults 18+ years",
+              dosage: "2x2\", 4x4\", and 4x6\" sizes",
+              notes: "Various sizes for different wound types"
+            },
+            {
+              name: "Medical Tape (Hypoallergenic)",
+              category: "First Aid & Wounds",
+              reason: "Secure bandages and dressings",
+              priority: "high",
+              ageGroup: "Adults 18+ years",
+              dosage: "Paper tape for sensitive skin",
+              notes: "Hypoallergenic preferred"
+            },
+            {
+              name: "Cetirizine 10mg (Zyrtec)",
+              category: "Allergy & Skin",
+              reason: "Non-drowsy allergy relief",
+              priority: "high",
+              ageGroup: "Adults 18+ years",
+              dosage: "10mg once daily",
+              notes: "Good for seasonal allergies and hives"
+            },
+            {
+              name: "Hydrocortisone Cream 1%",
+              category: "Allergy & Skin",
+              reason: "Relieve itching and skin irritation",
               priority: "medium",
-              ageGroup: "Adults 65+ years",
-              dosage: "81mg daily (consult doctor)",
-              notes: "May help prevent heart attacks and strokes"
+              ageGroup: "Adults 18+ years",
+              dosage: "Apply directly to affected area 2-3 times daily",
+              notes: "For insect bites, rashes, and minor skin conditions"
+            },
+            {
+              name: "Loperamide 2mg (Imodium)",
+              category: "Digestive Health",
+              reason: "Treat acute diarrhea",
+              priority: "high",
+              ageGroup: "Adults 18+ years",
+              dosage: "2mg initially, then 1mg after each loose stool",
+              notes: "Maximum 8mg per day"
+            },
+            {
+              name: "Antacid (Calcium Carbonate)",
+              category: "Digestive Health",
+              reason: "Relieve heartburn and indigestion",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "500-1000mg as needed",
+              notes: "Chewable tablets for quick relief"
+            },
+            {
+              name: "Pseudoephedrine 30mg (Sudafed)",
+              category: "Respiratory Health",
+              reason: "Relieve nasal congestion",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "30-60mg every 4-6 hours",
+              notes: "May cause insomnia, avoid before bed"
             }
           );
         }
@@ -282,7 +371,7 @@ Return ONLY the JSON array, no other text.`;
           essentialMedicines: fallbackMedicines,
           fallback: true,
           error: error.message,
-          message: `Fallback essential medicines list (AI generation failed)`,
+          message: `Fallback essential medicines list (AI generation failed) - ${fallbackMedicines.length} medicines`,
           generatedAt: new Date().toISOString()
         });
       }
@@ -345,7 +434,7 @@ Return a JSON object with this structure:
           body: JSON.stringify({
             model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: prompt }],
-            temperature: 0.3,
+            temperature: 0.1,
             max_tokens: 1000
           })
         });
