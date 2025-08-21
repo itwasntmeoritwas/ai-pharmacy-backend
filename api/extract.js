@@ -138,8 +138,16 @@ export default async function handler(req, res) {
     // Branch: medicine extraction from images
     if (body && body.images && body.images.length > 0) {
       console.log('Medicine extraction request received with', body.images.length, 'images');
+      console.log('Request body keys:', Object.keys(body));
+      console.log('Images array length:', body.images?.length);
       
       try {
+        console.log('Checking OpenAI API key...');
+        if (!process.env.OPENAI_API_KEY) {
+          throw new Error('OPENAI_API_KEY environment variable is not set');
+        }
+        console.log('OpenAI API key is configured');
+        
         const OpenAI = require('openai');
         const openai = new OpenAI({
           apiKey: process.env.OPENAI_API_KEY,
@@ -219,6 +227,7 @@ CRITICAL:
 
 LOOK AT THE IMAGES AND TELL ME EXACTLY WHAT YOU SEE WRITTEN ON THE PACKAGE. DO NOT USE ANY MEDICAL KNOWLEDGE TO FILL IN MISSING INFORMATION.`;
 
+        console.log('Sending request to OpenAI...');
         const response = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
@@ -230,6 +239,7 @@ LOOK AT THE IMAGES AND TELL ME EXACTLY WHAT YOU SEE WRITTEN ON THE PACKAGE. DO N
           max_tokens: 1000,
           temperature: 0.0, // Zero temperature for maximum consistency
         });
+        console.log('OpenAI request completed successfully');
 
         const content = response.choices[0]?.message?.content;
         console.log('OpenAI response:', content);
