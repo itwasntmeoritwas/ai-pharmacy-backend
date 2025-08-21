@@ -4,11 +4,6 @@
     "api/*.js": {
       "runtime": "nodejs18.x",
       "maxDuration": 30
-    },
-    "api/extract.js": {
-      "runtime": "nodejs18.x",
-      "maxDuration": 30,
-      "memory": 1024
     }
   },
   "routes": [
