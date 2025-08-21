@@ -202,24 +202,33 @@ FINAL CHECK:
 - If you're unsure about ANY field, set it to null
 - Remember: It's better to return incomplete data than incorrect data`;
 
-        const userPrompt = `Analyze these medicine package images and extract ONLY the information that is clearly visible and readable. 
+        const userPrompt = `IMPORTANT: You are analyzing IMAGES of medicine packages. Look at the actual images carefully.
 
-IMPORTANT: 
-- If you see "Strepfen" on the package, extract "Strepfen" as the name
-- If you see "8.75 mg" on the package, extract "8.75 mg" as the dosage  
-- If you see "Sore Throat Relief" on the package, extract "Sore Throat Relief" as the type
-- If you see "Sore throat" on the package, extract "Sore throat" as the illness
-- Do NOT guess, infer, or use medical knowledge to fill in missing information
-- Only extract what you can actually read from the images`;
+STEP-BY-STEP ANALYSIS:
+1. First, look at the images and identify the BRAND NAME that is clearly visible
+2. Look for the DOSAGE information (e.g., mg, ml, etc.)
+3. Look for what the medicine TREATS (e.g., sore throat, pain, etc.)
+4. Look for the MEDICINE TYPE/CATEGORY if stated
+5. Look for EXPIRY DATE only if clearly visible
+
+CRITICAL: 
+- If you see "Strepfen" written on the package, the name is "Strepfen" - NOT "Ibuprofen"
+- If you see "8.75 mg" written on the package, the dosage is "8.75 mg" - NOT "400mg"
+- If you see "Sore Throat Relief" written on the package, the type is "Sore Throat Relief" - NOT "Pain Relief"
+- If you see "Sore throat" written on the package, the illness is "Sore throat" - NOT "Pain"
+
+LOOK AT THE IMAGES AND TELL ME EXACTLY WHAT YOU SEE WRITTEN ON THE PACKAGE. DO NOT USE ANY MEDICAL KNOWLEDGE TO FILL IN MISSING INFORMATION.`;
 
         const response = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
+            { role: 'user', content: userPrompt },
+            { role: 'assistant', content: 'I understand. I will look at the images carefully and only extract what I can actually see written on the package. I will not guess or use medical knowledge to fill in missing information.' },
+            { role: 'user', content: 'Perfect. Now analyze the images and extract ONLY the visible text. Remember: if you see "Strepfen", say "Strepfen" - not "Ibuprofen".' }
           ],
           max_tokens: 1000,
-          temperature: 0.1, // Very low temperature for consistency
+          temperature: 0.0, // Zero temperature for maximum consistency
         });
 
         const content = response.choices[0]?.message?.content;
@@ -252,6 +261,29 @@ IMPORTANT:
         console.log('Medicine type extracted:', extractedData.type);
         console.log('Medicine illness extracted:', extractedData.illness);
         console.log('Medicine expiry extracted:', extractedData.expiryDate);
+
+        // Validation: Check for common hallucination patterns
+        const hallucinationChecks = [
+          { field: 'name', patterns: ['Ibuprofen', 'Paracetamol', 'Aspirin'], description: 'Common painkiller names' },
+          { field: 'dosage', patterns: ['400mg', '500mg', '600mg'], description: 'Common painkiller dosages' },
+          { field: 'type', patterns: ['Pain Relief', 'Pain'], description: 'Generic pain relief types' },
+          { field: 'illness', patterns: ['Pain', 'Fever'], description: 'Generic pain/fever indications' }
+        ];
+
+        let potentialHallucination = false;
+        for (const check of hallucinationChecks) {
+          if (extractedData[check.field] && check.patterns.some(pattern => 
+            extractedData[check.field].toLowerCase().includes(pattern.toLowerCase())
+          )) {
+            console.log(`⚠️ POTENTIAL HALLUCINATION DETECTED in ${check.field}: "${extractedData[check.field]}" - ${check.description}`);
+            potentialHallucination = true;
+          }
+        }
+
+        if (potentialHallucination) {
+          console.log('�� WARNING: AI may be hallucinating common medicine patterns instead of reading actual text');
+        }
+
         return res.status(200).json(extractedData);
 
       } catch (error) {
