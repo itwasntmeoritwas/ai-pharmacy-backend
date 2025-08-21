@@ -558,58 +558,85 @@ CRITICAL REQUIREMENTS:
               notes: "Hypoallergenic preferred"
             },
             {
-              name: "Aspirin 300mg",
-              category: "FEVER & PAIN RELIEF",
-              reason: "Pain relief and blood thinning",
-              priority: "medium",
-              ageGroup: "Adults 18+ years",
-              dosage: "300-600mg every 4-6 hours",
-              notes: "Not recommended for children under 16"
-            },
-            {
-              name: "Cough Syrup (Dextromethorphan)",
-              category: "RESPIRATORY HEALTH",
-              reason: "Relieve dry cough",
-              priority: "medium",
-              ageGroup: "Adults 18+ years",
-              dosage: "15ml every 4-6 hours",
-              notes: "Non-drowsy formula preferred"
-            },
-            {
-              name: "Nasal Decongestant (Xylometazoline)",
-              category: "RESPIRATORY HEALTH",
-              reason: "Relieve blocked nose",
-              priority: "medium",
-              ageGroup: "Adults 18+ years",
-              dosage: "2 sprays in each nostril up to 3 times daily",
-              notes: "Use for maximum 7 days only"
-            },
-            {
-              name: "Eye Drops (Sodium Chloride)",
-              category: "FIRST AID & WOUND CARE",
-              reason: "Rinse irritated eyes",
-              priority: "medium",
-              ageGroup: "All ages",
-              dosage: "1-2 drops as needed",
-              notes: "Sterile saline solution for eye irrigation"
-            },
-            {
-              name: "Digital Thermometer",
-              category: "EMERGENCY & MONITORING",
-              reason: "Monitor body temperature",
+              name: "Antibiotic for traveler's diarrhea (e.g., Azithromycin)",
+              category: "DIGESTIVE HEALTH",
+              reason: "To treat bacterial infections if diarrhea persists.",
               priority: "high",
-              ageGroup: "All ages",
-              dosage: "Oral, underarm, or rectal use",
-              notes: "Essential for fever monitoring"
+              ageGroup: "Adults 18+ years",
+              dosage: "6 tablets",
+              notes: "To treat bacterial infections if diarrhea persists."
             },
             {
-              name: "Blood Pressure Monitor",
-              category: "EMERGENCY & MONITORING",
-              reason: "Monitor blood pressure",
+              name: "Insect repellent (DEET-based)",
+              category: "DIGESTIVE HEALTH",
+              reason: "To protect against mosquito bites and reduce the risk of dengue and other mosquito-borne diseases.",
+              priority: "high",
+              ageGroup: "Adults 18+ years",
+              dosage: "1 bottle",
+              notes: "To protect against mosquito bites and reduce the risk of dengue and other mosquito-borne diseases."
+            },
+            {
+              name: "Sunscreen (SPF 30 or higher)",
+              category: "DIGESTIVE HEALTH",
+              reason: "To protect against sunburn, especially in outdoor settings.",
               priority: "medium",
               ageGroup: "Adults 18+ years",
-              dosage: "Use as directed by healthcare provider",
-              notes: "Important for those with hypertension"
+              dosage: "1 bottle",
+              notes: "To protect against sunburn, especially in outdoor settings."
+            },
+            {
+              name: "First aid kit (band-aids, antiseptic wipes, etc.)",
+              category: "DIGESTIVE HEALTH",
+              reason: "For minor injuries and cuts that may occur during travel.",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "1 kit",
+              notes: "For minor injuries and cuts that may occur during travel."
+            },
+            {
+              name: "Hepatitis A",
+              category: "DIGESTIVE HEALTH",
+              reason: "Check with your doctor for destination-specific requirements",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "Check with your doctor for destination-specific requirements",
+              notes: "Check with your doctor for destination-specific requirements"
+            },
+            {
+              name: "Hepatitis B",
+              category: "DIGESTIVE HEALTH",
+              reason: "Check with your doctor for destination-specific requirements",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "Check with your doctor for destination-specific requirements",
+              notes: "Check with your doctor for destination-specific requirements"
+            },
+            {
+              name: "Typhoid",
+              category: "DIGESTIVE HEALTH",
+              reason: "Check with your doctor for destination-specific requirements",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "Check with your doctor for destination-specific requirements",
+              notes: "Check with your doctor for destination-specific requirements"
+            },
+            {
+              name: "Japanese Encephalitis (if traveling to rural areas)",
+              category: "DIGESTIVE HEALTH",
+              reason: "Check with your doctor for destination-specific requirements",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "Check with your doctor for destination-specific requirements",
+              notes: "Check with your doctor for destination-specific requirements"
+            },
+            {
+              name: "Tetanus-Diphtheria-Pertussis (Tdap) booster if not up to date",
+              category: "DIGESTIVE HEALTH",
+              reason: "Check with your doctor for destination-specific requirements",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "Check with your doctor for destination-specific requirements",
+              notes: "Check with your doctor for destination-specific requirements"
             }
           ],
           message: "Fallback essential medicines list (AI generation failed) - 20 medicines",
@@ -809,12 +836,13 @@ LOOK AT THE IMAGES AND TELL ME EXACTLY WHAT YOU SEE WRITTEN ON THE PACKAGE. DO N
     // Branch: travel pack suggestions
     if (body && body.type === 'travel-pack') {
       console.log('Travel pack request received');
+      console.log('Full request body:', JSON.stringify(body, null, 2));
       console.log('Travel details:', {
-        destination: body.city || body.destination,
-        duration: body.durationDays || body.duration,
+        destination: body.city,
+        duration: body.durationDays,
         startDate: body.startDate,
-        familyMembers: body.members || body.familyMembers,
-        medicineCabinet: body.medicineSummary || body.medicineCabinetSummary,
+        familyMembers: body.members,
+        medicineCabinet: body.medicineSummary,
         allBodyKeys: Object.keys(body)
       });
       
@@ -834,15 +862,15 @@ LOOK AT THE IMAGES AND TELL ME EXACTLY WHAT YOU SEE WRITTEN ON THE PACKAGE. DO N
         const travelPackPrompt = `You are a travel medicine specialist creating a PERSONALIZED travel pack for a family traveling to a specific destination.
 
 TRAVEL DETAILS:
-Destination: ${body.city || body.destination || 'Destination not specified'}
-Duration: ${body.durationDays || body.duration || 'Duration not specified'}
+Destination: ${body.city || 'Destination not specified'}
+Duration: ${body.durationDays || 'Duration not specified'}
 Start Date: ${body.startDate || 'Start date not specified'}
 
 FAMILY MEMBERS TRAVELING:
-${body.members ? JSON.stringify(body.members, null, 2) : body.familyMembers ? JSON.stringify(body.familyMembers, null, 2) : 'No family members specified'}
+${body.members ? JSON.stringify(body.members, null, 2) : 'No family members specified'}
 
 EXISTING MEDICINE CABINET:
-${body.medicineSummary || body.medicineCabinetSummary || 'No existing medicines'}
+${body.medicineSummary || 'No existing medicines'}
 
 TASK: Create a COMPREHENSIVE and PERSONALIZED travel pack considering:
 
@@ -926,7 +954,7 @@ IMPORTANT:
         console.log('Travel pack generated:', travelPackData);
         return res.status(200).json({
           ...travelPackData,
-          message: `AI-generated personalized travel pack for ${body.city || body.destination || 'your destination'}`,
+          message: `AI-generated personalized travel pack for ${body.city || 'your destination'}`,
           generatedAt: new Date().toISOString()
         });
 
@@ -992,7 +1020,7 @@ IMPORTANT:
           priority: "high",
           ageGroup: "Adults 18+ years",
           dosage: "200-400mg every 4-6 hours",
-          notes: "Good for muscle pain, inflammation, and period pain"
+              notes: "Good for muscle pain, inflammation, and period pain"
         },
         {
           name: "Betadine Antiseptic (Povidone-iodine)",
