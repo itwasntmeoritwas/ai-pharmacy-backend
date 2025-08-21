@@ -33,104 +33,292 @@ export default async function handler(req, res) {
     // Branch: essential medicines generation
     if (body && body.type === 'essential-medicines') {
       console.log('Essential medicines request received');
+      console.log('Family members:', body.familyMembers);
+      console.log('Medicine cabinet summary:', body.medicineCabinetSummary);
       
-      // For now, return a static list to test if the endpoint works
-      return res.status(200).json({
-        essentialMedicines: [
-          {
-            name: "Paracetamol 500mg (Acetaminophen)",
-            category: "Fever & Pain Relief",
-            reason: "Basic pain relief and fever reduction",
-            priority: "high",
-            ageGroup: "Adults 18+ years",
-            dosage: "500-1000mg every 4-6 hours",
-            notes: "Safe for most people, good for headaches and fever"
-          },
-          {
-            name: "Ibuprofen 400mg (Advil/Motrin)",
-            category: "Fever & Pain Relief",
-            reason: "Anti-inflammatory pain relief",
-            priority: "high",
-            ageGroup: "Adults 18+ years",
-            dosage: "200-400mg every 4-6 hours",
-            notes: "Good for muscle pain, inflammation, and period pain"
-          },
-          {
-            name: "Betadine Antiseptic (Povidone-iodine)",
-            category: "First Aid & Wounds",
-            reason: "Clean wounds and prevent infection",
-            priority: "high",
-            ageGroup: "All ages",
-            dosage: "Apply directly to wound",
-            notes: "Essential for treating cuts and scrapes"
-          },
-          {
-            name: "Children's Paracetamol Syrup (Acetaminophen)",
-            category: "Fever & Pain Relief",
-            reason: "Safe pain relief for children",
-            priority: "high",
-            ageGroup: "Children 2-12 years",
-            dosage: "Based on weight and age",
-            notes: "Liquid form, consult dosing chart"
-          },
-          {
-            name: "Antihistamine (Cetirizine)",
-            category: "Allergy & Skin",
-            reason: "Allergy relief for adults",
-            priority: "medium",
-            ageGroup: "Adults 18+ years",
-            dosage: "10mg once daily",
-            notes: "Non-drowsy formula preferred"
-          },
-          {
-            name: "Loperamide (Imodium)",
-            category: "Digestive Health",
-            reason: "Treat acute diarrhea",
-            priority: "medium",
-            ageGroup: "Adults 18+ years",
-            dosage: "2mg initially, then 1mg after each loose stool",
-            notes: "Maximum 8mg per day"
-          },
-          {
-            name: "Antacid (Calcium Carbonate)",
-            category: "Digestive Health",
-            reason: "Relieve heartburn and indigestion",
-            priority: "medium",
-            ageGroup: "Adults 18+ years",
-            dosage: "500-1000mg as needed",
-            notes: "Chewable tablets for quick relief"
-          },
-          {
-            name: "Hydrocortisone Cream 1%",
-            category: "Allergy & Skin",
-            reason: "Relieve itching and skin irritation",
-            priority: "medium",
-            ageGroup: "All ages",
-            dosage: "Apply directly to affected area",
-            notes: "For insect bites, rashes, and minor skin conditions"
-          },
-          {
-            name: "Sterile Gauze Pads (Various sizes)",
-            category: "First Aid & Wounds",
-            reason: "Cover and protect wounds",
-            priority: "high",
-            ageGroup: "All ages",
-            dosage: "2x2\", 4x4\", and 4x6\" sizes",
-            notes: "Various sizes for different wound types"
-          },
-          {
-            name: "Medical Tape (Hypoallergenic)",
-            category: "First Aid & Wounds",
-            reason: "Secure bandages and dressings",
-            priority: "high",
-            ageGroup: "All ages",
-            dosage: "Paper tape for sensitive skin",
-            notes: "Hypoallergenic preferred"
+      try {
+        console.log('Checking OpenAI API key for essential medicines...');
+        if (!process.env.OPENAI_API_KEY) {
+          throw new Error('OPENAI_API_KEY environment variable is not set');
+        }
+        console.log('OpenAI API key is configured for essential medicines');
+        
+        // Use require instead of import for Vercel compatibility
+        const OpenAI = require('openai');
+        const openai = new OpenAI({
+          apiKey: process.env.OPENAI_API_KEY,
+        });
+
+        const essentialMedicinesPrompt = `You are a pharmacist creating a COMPREHENSIVE essential medicines list for a family. 
+
+FAMILY INFORMATION:
+${body.familyMembers ? JSON.stringify(body.familyMembers, null, 2) : 'No family members provided'}
+
+MEDICINE CABINET SUMMARY:
+${body.medicineCabinetSummary || 'No existing medicines'}
+
+TASK: Generate a COMPREHENSIVE list of 40-50 essential medicines that should be in every household, considering:
+- Family composition (ages, genders, locations)
+- Existing medicines (avoid duplicates)
+- Common health needs and emergencies
+- Age-appropriate formulations
+- Location-specific availability
+
+REQUIRED RESPONSE FORMAT (JSON array):
+[
+  {
+    "name": "Medicine name with dosage",
+    "category": "Category name (e.g., Fever & Pain Relief, First Aid & Wounds)",
+    "reason": "Why this medicine is essential",
+    "priority": "high/medium/low",
+    "ageGroup": "Who this is for (e.g., Adults 18+, Children 2-12, All ages)",
+    "dosage": "Recommended dosage information",
+    "notes": "Important safety notes or usage instructions"
+  }
+]
+
+CATEGORIES TO COVER:
+1. Fever & Pain Relief
+2. First Aid & Wounds
+3. Allergy & Skin Care
+4. Digestive Health
+5. Respiratory Health
+6. Headache & Migraine
+7. Viral & Bacterial Infections
+8. Emergency & Monitoring
+9. Travel & Prevention
+10. Natural & Alternative
+
+IMPORTANT: Generate EXACTLY 40-50 medicines, covering ALL categories. Be comprehensive and thorough.`;
+
+        console.log('Sending essential medicines request to OpenAI...');
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: 'You are a pharmacist creating comprehensive essential medicines lists.' },
+            { role: 'user', content: essentialMedicinesPrompt }
+          ],
+          max_tokens: 2000,
+          temperature: 0.1, // Low temperature for consistency
+        });
+
+        const content = response.choices[0]?.message?.content;
+        console.log('OpenAI essential medicines response:', content);
+
+        // Try to extract JSON from the response
+        let essentialMedicines;
+        try {
+          // Look for JSON array in the response
+          const jsonMatch = content.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            essentialMedicines = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error('No JSON array found in response');
           }
-        ],
-        message: "Static essential medicines list (AI generation disabled for now)",
-        generatedAt: new Date().toISOString()
-      });
+        } catch (parseError) {
+          console.error('Failed to parse OpenAI essential medicines response:', parseError);
+          // Fallback to static list if AI fails
+          essentialMedicines = [
+            {
+              name: "Paracetamol 500mg (Acetaminophen)",
+              category: "Fever & Pain Relief",
+              reason: "Basic pain relief and fever reduction",
+              priority: "high",
+              ageGroup: "Adults 18+ years",
+              dosage: "500-1000mg every 4-6 hours",
+              notes: "Safe for most people, good for headaches and fever"
+            },
+            {
+              name: "Ibuprofen 400mg (Advil/Motrin)",
+              category: "Fever & Pain Relief",
+              reason: "Anti-inflammatory pain relief",
+              priority: "high",
+              ageGroup: "Adults 18+ years",
+              dosage: "200-400mg every 4-6 hours",
+              notes: "Good for muscle pain, inflammation, and period pain"
+            },
+            {
+              name: "Betadine Antiseptic (Povidone-iodine)",
+              category: "First Aid & Wounds",
+              reason: "Clean wounds and prevent infection",
+              priority: "high",
+              ageGroup: "All ages",
+              dosage: "Apply directly to wound",
+              notes: "Essential for treating cuts and scrapes"
+            },
+            {
+              name: "Children's Paracetamol Syrup (Acetaminophen)",
+              category: "Fever & Pain Relief",
+              reason: "Safe pain relief for children",
+              priority: "high",
+              ageGroup: "Children 2-12 years",
+              dosage: "Based on weight and age",
+              notes: "Liquid form, consult dosing chart"
+            },
+            {
+              name: "Antihistamine (Cetirizine)",
+              category: "Allergy & Skin",
+              reason: "Allergy relief for adults",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "10mg once daily",
+              notes: "Non-drowsy formula preferred"
+            },
+            {
+              name: "Loperamide (Imodium)",
+              category: "Digestive Health",
+              reason: "Treat acute diarrhea",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "2mg initially, then 1mg after each loose stool",
+              notes: "Maximum 8mg per day"
+            },
+            {
+              name: "Antacid (Calcium Carbonate)",
+              category: "Digestive Health",
+              reason: "Relieve heartburn and indigestion",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "500-1000mg as needed",
+              notes: "Chewable tablets for quick relief"
+            },
+            {
+              name: "Hydrocortisone Cream 1%",
+              category: "Allergy & Skin",
+              reason: "Relieve itching and skin irritation",
+              priority: "medium",
+              ageGroup: "All ages",
+              dosage: "Apply directly to affected area",
+              notes: "For insect bites, rashes, and minor skin conditions"
+            },
+            {
+              name: "Sterile Gauze Pads (Various sizes)",
+              category: "First Aid & Wounds",
+              reason: "Cover and protect wounds",
+              priority: "high",
+              ageGroup: "All ages",
+              dosage: "2x2\", 4x4\", and 4x6\" sizes",
+              notes: "Various sizes for different wound types"
+            },
+            {
+              name: "Medical Tape (Hypoallergenic)",
+              category: "First Aid & Wounds",
+              reason: "Secure bandages and dressings",
+              priority: "high",
+              ageGroup: "All ages",
+              dosage: "Paper tape for sensitive skin",
+              notes: "Hypoallergenic preferred"
+            }
+          ];
+        }
+
+        console.log('Essential medicines generated:', essentialMedicines.length);
+        return res.status(200).json({
+          essentialMedicines,
+          message: `AI-generated essential medicines list (${essentialMedicines.length} medicines)`,
+          generatedAt: new Date().toISOString()
+        });
+
+      } catch (error) {
+        console.error('Essential medicines generation failed:', error);
+        // Return fallback static list if AI fails
+        return res.status(200).json({
+          essentialMedicines: [
+            {
+              name: "Paracetamol 500mg (Acetaminophen)",
+              category: "Fever & Pain Relief",
+              reason: "Basic pain relief and fever reduction",
+              priority: "high",
+              ageGroup: "Adults 18+ years",
+              dosage: "500-1000mg every 4-6 hours",
+              notes: "Safe for most people, good for headaches and fever"
+            },
+            {
+              name: "Ibuprofen 400mg (Advil/Motrin)",
+              category: "Fever & Pain Relief",
+              reason: "Anti-inflammatory pain relief",
+              priority: "high",
+              ageGroup: "Adults 18+ years",
+              dosage: "200-400mg every 4-6 hours",
+              notes: "Good for muscle pain, inflammation, and period pain"
+            },
+            {
+              name: "Betadine Antiseptic (Povidone-iodine)",
+              category: "First Aid & Wounds",
+              reason: "Clean wounds and prevent infection",
+              priority: "high",
+              ageGroup: "All ages",
+              dosage: "Apply directly to wound",
+              notes: "Essential for treating cuts and scrapes"
+            },
+            {
+              name: "Children's Paracetamol Syrup (Acetaminophen)",
+              category: "Fever & Pain Relief",
+              reason: "Safe pain relief for children",
+              priority: "high",
+              ageGroup: "Children 2-12 years",
+              dosage: "Based on weight and age",
+              notes: "Liquid form, consult dosing chart"
+            },
+            {
+              name: "Antihistamine (Cetirizine)",
+              category: "Allergy & Skin",
+              reason: "Allergy relief for adults",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "10mg once daily",
+              notes: "Non-drowsy formula preferred"
+            },
+            {
+              name: "Loperamide (Imodium)",
+              category: "Digestive Health",
+              reason: "Treat acute diarrhea",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "2mg initially, then 1mg after each loose stool",
+              notes: "Maximum 8mg per day"
+            },
+            {
+              name: "Antacid (Calcium Carbonate)",
+              category: "Digestive Health",
+              reason: "Relieve heartburn and indigestion",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "500-1000mg as needed",
+              notes: "Chewable tablets for quick relief"
+            },
+            {
+              name: "Hydrocortisone Cream 1%",
+              category: "Allergy & Skin",
+              reason: "Relieve itching and skin irritation",
+              priority: "medium",
+              ageGroup: "All ages",
+              dosage: "Apply directly to affected area",
+              notes: "For insect bites, rashes, and minor skin conditions"
+            },
+            {
+              name: "Sterile Gauze Pads (Various sizes)",
+              category: "First Aid & Wounds",
+              reason: "Cover and protect wounds",
+              priority: "high",
+              ageGroup: "All ages",
+              dosage: "2x2\", 4x4\", and 4x6\" sizes",
+              notes: "Various sizes for different wound types"
+            },
+            {
+              name: "Medical Tape (Hypoallergenic)",
+              category: "First Aid & Wounds",
+              reason: "Secure bandages and dressings",
+              priority: "high",
+              ageGroup: "All ages",
+              dosage: "Paper tape for sensitive skin",
+              notes: "Hypoallergenic preferred"
+            }
+          ],
+          message: "Fallback essential medicines list (AI generation failed)",
+          generatedAt: new Date().toISOString()
+        });
+      }
     }
 
     // Branch: medicine extraction from images
@@ -307,7 +495,7 @@ LOOK AT THE IMAGES AND TELL ME EXACTLY WHAT YOU SEE WRITTEN ON THE PACKAGE. DO N
         }
 
         if (potentialHallucination) {
-          console.log('�� WARNING: AI may be hallucinating common medicine patterns instead of reading actual text');
+          console.log('⚠️ WARNING: AI may be hallucinating common medicine patterns instead of reading actual text');
         }
 
         return res.status(200).json(extractedData);
@@ -325,30 +513,143 @@ LOOK AT THE IMAGES AND TELL ME EXACTLY WHAT YOU SEE WRITTEN ON THE PACKAGE. DO N
     if (body && body.type === 'travel-pack') {
       console.log('Travel pack request received');
       
-      // Return static travel pack suggestions
-      return res.status(200).json({
-        fromCabinet: [
-          {
-            name: "Paracetamol 500mg",
-            reason: "Pain relief and fever reduction",
-            qty: 1
+      try {
+        console.log('Checking OpenAI API key for travel pack...');
+        if (!process.env.OPENAI_API_KEY) {
+          throw new Error('OPENAI_API_KEY environment variable is not set');
+        }
+        console.log('OpenAI API key is configured for travel pack');
+        
+        // Use require instead of import for Vercel compatibility
+        const OpenAI = require('openai');
+        const openai = new OpenAI({
+          apiKey: process.env.OPENAI_API_KEY,
+        });
+
+        const travelPackPrompt = `You are a travel medicine specialist creating a personalized travel pack.
+
+TRAVEL DETAILS:
+${body.destination || 'Destination not specified'}
+${body.duration || 'Duration not specified'}
+
+FAMILY MEMBERS TRAVELING:
+${body.familyMembers ? JSON.stringify(body.familyMembers, null, 2) : 'No family members specified'}
+
+EXISTING MEDICINE CABINET:
+${body.medicineCabinetSummary || 'No existing medicines'}
+
+TASK: Create a travel pack with two sections:
+1. FROM CABINET: Medicines to take from existing supply
+2. TO BUY: Medicines to purchase for the trip
+
+Consider:
+- Destination-specific health risks
+- Travel duration
+- Family member ages and health conditions
+- Climate and activities
+- Local medicine availability
+
+REQUIRED RESPONSE FORMAT (JSON):
+{
+  "fromCabinet": [
+    {
+      "name": "Medicine name with dosage",
+      "reason": "Why to take this",
+      "qty": "Quantity to pack"
+    }
+  ],
+  "toBuy": [
+    {
+      "name": "Medicine name with dosage",
+      "reason": "Why to buy this",
+      "qty": "Quantity to buy"
+    }
+  ]
+}`;
+
+        console.log('Sending travel pack request to OpenAI...');
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: 'You are a travel medicine specialist.' },
+            { role: 'user', content: travelPackPrompt }
+          ],
+          max_tokens: 1000,
+          temperature: 0.1,
+        });
+
+        const content = response.choices[0]?.message?.content;
+        console.log('OpenAI travel pack response:', content);
+
+        // Try to extract JSON from the response
+        let travelPackData;
+        try {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            travelPackData = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error('No JSON found in response');
           }
-        ],
-        toBuy: [
-          {
-            name: "Motion sickness tablets",
-            reason: "Travel comfort",
-            qty: 1
-          },
-          {
-            name: "Sunscreen SPF 30+",
-            reason: "Sun protection",
-            qty: 1
-          }
-        ],
-        message: "Static travel pack suggestions",
-        generatedAt: new Date().toISOString()
-      });
+        } catch (parseError) {
+          console.error('Failed to parse OpenAI travel pack response:', parseError);
+          // Fallback to static suggestions
+          travelPackData = {
+            fromCabinet: [
+              {
+                name: "Paracetamol 500mg",
+                reason: "Pain relief and fever reduction",
+                qty: 1
+              }
+            ],
+            toBuy: [
+              {
+                name: "Motion sickness tablets",
+                reason: "Travel comfort",
+                qty: 1
+              },
+              {
+                name: "Sunscreen SPF 30+",
+                reason: "Sun protection",
+                qty: 1
+              }
+            ]
+          };
+        }
+
+        console.log('Travel pack generated:', travelPackData);
+        return res.status(200).json({
+          ...travelPackData,
+          message: `AI-generated travel pack for ${body.destination || 'your destination'}`,
+          generatedAt: new Date().toISOString()
+        });
+
+      } catch (error) {
+        console.error('Travel pack generation failed:', error);
+        // Return fallback static suggestions if AI fails
+        return res.status(200).json({
+          fromCabinet: [
+            {
+              name: "Paracetamol 500mg",
+              reason: "Pain relief and fever reduction",
+              qty: 1
+            }
+          ],
+          toBuy: [
+            {
+              name: "Motion sickness tablets",
+              reason: "Travel comfort",
+              qty: 1
+            },
+            {
+              name: "Sunscreen SPF 30+",
+              reason: "Sun protection",
+              qty: 1
+            }
+          ],
+          message: "Fallback travel pack suggestions (AI generation failed)",
+          generatedAt: new Date().toISOString()
+        });
+      }
     }
 
     // Default branch: return essential medicines as fallback
