@@ -676,7 +676,7 @@ REQUIRED RESPONSE FORMAT (JSON):
   "manufacturerCountry": "Country if visible",
   "batchNumber": "Batch number if visible, otherwise null",
   "lotNumber": "Lot number if visible, otherwise null",
-  "prescriptionOnly": true/false if stated, otherwise null,
+  "prescriptionOnly": true/false if stated, otherwise null",
   "contraindications": ["array of contraindications if visible"],
   "minAge": "minimum age if stated, otherwise null",
   "maxAge": "maximum age if stated, otherwise null",
@@ -809,6 +809,14 @@ LOOK AT THE IMAGES AND TELL ME EXACTLY WHAT YOU SEE WRITTEN ON THE PACKAGE. DO N
     // Branch: travel pack suggestions
     if (body && body.type === 'travel-pack') {
       console.log('Travel pack request received');
+      console.log('Travel details:', {
+        destination: body.city || body.destination,
+        duration: body.durationDays || body.duration,
+        startDate: body.startDate,
+        familyMembers: body.members || body.familyMembers,
+        medicineCabinet: body.medicineSummary || body.medicineCabinetSummary,
+        allBodyKeys: Object.keys(body)
+      });
       
       try {
         console.log('Checking OpenAI API key for travel pack...');
@@ -823,55 +831,77 @@ LOOK AT THE IMAGES AND TELL ME EXACTLY WHAT YOU SEE WRITTEN ON THE PACKAGE. DO N
           apiKey: process.env.OPENAI_API_KEY,
         });
 
-        const travelPackPrompt = `You are a travel medicine specialist creating a personalized travel pack.
+        const travelPackPrompt = `You are a travel medicine specialist creating a PERSONALIZED travel pack for a family traveling to a specific destination.
 
 TRAVEL DETAILS:
-${body.destination || 'Destination not specified'}
-${body.duration || 'Duration not specified'}
+Destination: ${body.city || body.destination || 'Destination not specified'}
+Duration: ${body.durationDays || body.duration || 'Duration not specified'}
+Start Date: ${body.startDate || 'Start date not specified'}
 
 FAMILY MEMBERS TRAVELING:
-${body.familyMembers ? JSON.stringify(body.familyMembers, null, 2) : 'No family members specified'}
+${body.members ? JSON.stringify(body.members, null, 2) : body.familyMembers ? JSON.stringify(body.familyMembers, null, 2) : 'No family members specified'}
 
 EXISTING MEDICINE CABINET:
-${body.medicineCabinetSummary || 'No existing medicines'}
+${body.medicineSummary || body.medicineCabinetSummary || 'No existing medicines'}
 
-TASK: Create a travel pack with two sections:
-1. FROM CABINET: Medicines to take from existing supply
-2. TO BUY: Medicines to purchase for the trip
+TASK: Create a COMPREHENSIVE and PERSONALIZED travel pack considering:
 
-Consider:
-- Destination-specific health risks
-- Travel duration
-- Family member ages and health conditions
-- Climate and activities
-- Local medicine availability
+1. DESTINATION-SPECIFIC HEALTH RISKS:
+   - Local food and water safety
+   - Tropical diseases (malaria, dengue, etc.)
+   - Climate and altitude considerations
+   - Local healthcare availability
+   - Required vaccinations
+
+2. FAMILY MEMBER CONSIDERATIONS:
+   - Ages and health conditions
+   - Allergies and sensitivities
+   - Existing medications
+   - Special needs (pregnancy, chronic conditions)
+
+3. TRAVEL DURATION:
+   - Short vs. long-term needs
+   - Refill requirements
+   - Emergency supplies
 
 REQUIRED RESPONSE FORMAT (JSON):
 {
   "fromCabinet": [
     {
       "name": "Medicine name with dosage",
-      "reason": "Why to take this",
-      "qty": "Quantity to pack"
+      "reason": "Why to take this from existing supply",
+      "qty": "Quantity to pack",
+      "priority": "high/medium/low"
     }
   ],
   "toBuy": [
     {
       "name": "Medicine name with dosage",
-      "reason": "Why to buy this",
-      "qty": "Quantity to buy"
+      "reason": "Why to buy this for the trip",
+      "qty": "Quantity to buy",
+      "priority": "high/medium/low"
     }
-  ]
-}`;
+  ],
+  "healthAdvice": "Specific health advice for this destination",
+  "vaccinations": ["List of recommended vaccinations"],
+  "precautions": ["List of health precautions for this destination"]
+}
+
+IMPORTANT: 
+- Be SPECIFIC to the destination (e.g., Sri Lanka = tropical diseases, water safety)
+- Consider family member ages and health conditions
+- Prioritize destination-specific risks
+- Include both preventive and treatment medications
+- Be comprehensive but practical`;
 
         console.log('Sending travel pack request to OpenAI...');
         const response = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: 'You are a travel medicine specialist.' },
+            { role: 'system', content: 'You are a travel medicine specialist with expertise in destination-specific health risks and personalized travel medicine recommendations.' },
             { role: 'user', content: travelPackPrompt }
           ],
-          max_tokens: 1000,
+          max_tokens: 2000,
           temperature: 0.1,
         });
 
@@ -889,64 +919,57 @@ REQUIRED RESPONSE FORMAT (JSON):
           }
         } catch (parseError) {
           console.error('Failed to parse OpenAI travel pack response:', parseError);
-          // Fallback to static suggestions
-          travelPackData = {
-            fromCabinet: [
-              {
-                name: "Paracetamol 500mg",
-                reason: "Pain relief and fever reduction",
-                qty: 1
-              }
-            ],
-            toBuy: [
-              {
-                name: "Motion sickness tablets",
-                reason: "Travel comfort",
-                qty: 1
-              },
-              {
-                name: "Sunscreen SPF 30+",
-                reason: "Sun protection",
-                qty: 1
-              }
-            ]
-          };
+          // Fallback to generic suggestions
+          travelPackData = generateGenericFallback();
         }
 
         console.log('Travel pack generated:', travelPackData);
         return res.status(200).json({
           ...travelPackData,
-          message: `AI-generated travel pack for ${body.destination || 'your destination'}`,
+          message: `AI-generated personalized travel pack for ${body.city || body.destination || 'your destination'}`,
           generatedAt: new Date().toISOString()
         });
 
       } catch (error) {
         console.error('Travel pack generation failed:', error);
-        // Return fallback static suggestions if AI fails
+        // Return generic fallback if AI fails
         return res.status(200).json({
-          fromCabinet: [
-            {
-              name: "Paracetamol 500mg",
-              reason: "Pain relief and fever reduction",
-              qty: 1
-            }
-          ],
-          toBuy: [
-            {
-              name: "Motion sickness tablets",
-              reason: "Travel comfort",
-              qty: 1
-            },
-            {
-              name: "Sunscreen SPF 30+",
-              reason: "Sun protection",
-              qty: 1
-            }
-          ],
-          message: "Fallback travel pack suggestions (AI generation failed)",
+          ...generateGenericFallback(),
+          message: `Generic travel pack suggestions (AI generation failed) - consult your doctor for destination-specific advice`,
           generatedAt: new Date().toISOString()
         });
       }
+    }
+
+    // Generic fallback for when AI fails
+    function generateGenericFallback() {
+      return {
+        fromCabinet: [
+          {
+            name: "Paracetamol 500mg",
+            reason: "Pain relief and fever reduction",
+            qty: 1,
+            priority: "high"
+          }
+        ],
+        toBuy: [
+          {
+            name: "Motion sickness tablets",
+            reason: "Travel comfort",
+            qty: 1,
+            priority: "medium"
+          },
+          {
+            name: "Sunscreen SPF 30+",
+            reason: "Sun protection",
+            qty: 1,
+            priority: "medium"
+          }
+        ],
+        healthAdvice: "General travel health recommendations - consult your doctor for destination-specific advice",
+        vaccinations: ["Check with your doctor for destination-specific requirements"],
+        precautions: ["Practice good hygiene", "Stay hydrated", "Protect against sun exposure"]
+      };
     }
 
     // Default branch: return essential medicines as fallback
