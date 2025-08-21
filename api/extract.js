@@ -1,5 +1,3 @@
-import OpenAI from 'openai';
-
 export default async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -148,6 +146,7 @@ export default async function handler(req, res) {
         }
         console.log('OpenAI API key is configured');
         
+        // Use require instead of import for Vercel compatibility
         const OpenAI = require('openai');
         const openai = new OpenAI({
           apiKey: process.env.OPENAI_API_KEY,
