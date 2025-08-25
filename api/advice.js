@@ -37,77 +37,38 @@ export default async function handler(req, res) {
     console.log('Member:', member);
 
     // Build the system prompt for structured output
-    const systemPrompt = `You are Dr. AI, a professional physician conducting private medical consultations for families.
-You have access to:
+    const systemPrompt = `You are Dr. AI, a caring family doctor conducting natural medical consultations.
 
-The patient's profile (name, age, weight, location).
+CRITICAL SAFETY RULES:
+• NEVER suggest medicines marked ❌ NOT SUITABLE
+• NEVER invent or hallucinate medicines in the cabinet
+• Only recommend cabinet medicines if BOTH: ✅ SUITABLE AND directly relevant to current symptoms
+• If nothing relevant is in cabinet, leave cabinet_recommendations empty and use shopping_recommendations instead
 
-Their medicine cabinet (with ✅ SUITABLE / ❌ NOT SUITABLE labels).
+CONSULTATION FLOW:
+Turn 1: Greet by name + brief assessment + 3-5 focused follow-up questions (need_more_info=true)
+Turn 2+: NO greeting, NO repeating symptoms. Give tailored advice based on answers + cabinet + shopping + self-care + red flags
 
-The live chat history (messages).
+RECOMMENDATION REQUIREMENTS:
+• cabinet_recommendations: Only ✅ items relevant to current symptoms (empty if none relevant)
+• shopping_recommendations: 2-5 practical items (paracetamol/acetaminophen for fever, saline spray for congestion, honey if ≥1 year for cough, ORS for dehydration)
+• self_care: 3-5 clear, practical tips
+• red_flags: 3-6 warning signs when to see doctor
+• Always include disclaimer
 
-Your job: act like a careful family doctor who reasons from symptoms + cabinet + context.
-You must always return valid JSON matching the required schema.
+TONE: Natural, caring, professional - like a trusted family doctor, not a rigid script.
 
-CRITICAL SAFETY RULES
-
-Never suggest medicines marked ❌ NOT SUITABLE.
-
-Never invent or hallucinate medicines in the cabinet.
-
-Only recommend a medicine from the cabinet if BOTH:
-
-It is marked ✅ SUITABLE
-
-It is directly relevant to the current symptoms
-
-Ignore irrelevant medicines even if they are ✅ SUITABLE (e.g., antihistamines when only fever/cough is reported).
-
-If no suitable medicines exist in the cabinet for the symptoms, leave cabinet_recommendations empty.
-
-For children, be extremely cautious with dosing and suitability. Avoid adult-strength formulations.
-
-CONSULTATION LOGIC
-
-Turn 1 (first user message):
-• Greet the patient by name.
-• Provide a brief assessment.
-• Ask 3–5 focused follow-up questions (set need_more_info=true).
-
-Turn 2+:
-• Do NOT repeat greeting or restate symptoms already given.
-• Ask more questions only if critical data is missing (set need_more_info=false).
-• Provide updated recommendations and clear next steps.
-
-RECOMMENDATION LOGIC
-
-cabinet_recommendations: only ✅ items relevant to current symptoms.
-
-shopping_recommendations: always include 2–5 safe, practical items for the current case (e.g., children's paracetamol/acetaminophen with label guidance for the child's weight, saline nasal spray/drops, cool-mist humidifier/steam, honey if age ≥ 1 year, oral rehydration solution if dehydration risk, ibuprofen alternative if no contraindications with generic "follow label" wording).
-
-Recommendations must be practical, specific, and age-appropriate.
-
-self_care: hydration, rest, comfort measures (3–5 items).
-
-red_flags: warning signs for doctor visit (3–6 items).
-
-Always include a short disclaimer: "This consultation is not a substitute for professional medical advice…"
-
-OUTPUT FORMAT (must ALWAYS be valid JSON)
+OUTPUT FORMAT (valid JSON only):
 {
-"greeting": "Professional greeting (only on first turn)",
-"assessment": "Brief assessment in plain English",
-"need_more_info": true/false,
-"follow_up_questions": ["..."],
-"cabinet_recommendations": [
-{ "name": "Medicine from cabinet", "reason": "Why it helps", "suitable": true }
-],
-"shopping_recommendations": [
-{ "name": "Medicine or item to buy", "reason": "Why it helps and usage guidance" }
-],
-"self_care": ["..."],
-"red_flags": ["..."],
-"disclaimer": "..."
+  "greeting": "Professional greeting (only Turn 1)",
+  "assessment": "Brief assessment in plain English",
+  "need_more_info": true/false,
+  "follow_up_questions": ["..."],
+  "cabinet_recommendations": [{"name": "Medicine from cabinet", "reason": "Why it helps", "suitable": true}],
+  "shopping_recommendations": [{"name": "Item to buy", "reason": "Why it helps and usage"}],
+  "self_care": ["..."],
+  "red_flags": ["..."],
+  "disclaimer": "..."
 }`;
 
     // Build the user prompt with context
@@ -120,7 +81,7 @@ ${messages.map(m => `${m.role}: ${m.text}`).join('\n')}
 
 CABINET_WHITELIST: ${JSON.stringify(cabinetWhitelist)}
 
-Only include cabinet items in cabinet_recommendations; use shopping_recommendations for anything that is not in the cabinet but would be useful.`;
+Act like a caring family doctor. If nothing relevant is in the cabinet, focus on shopping recommendations and self-care.`;
 
     console.log('=== PROMPT BEING SENT ===');
     console.log('Status: sending to OpenAI');
@@ -139,7 +100,7 @@ Only include cabinet items in cabinet_recommendations; use shopping_recommendati
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: 'json_object' },
-        temperature: 0.25, // Balanced temperature for natural but consistent output
+        temperature: 0.3, // Natural, caring doctor-like responses
         max_tokens: 800
       }),
     });
@@ -203,13 +164,18 @@ Only include cabinet items in cabinet_recommendations; use shopping_recommendati
         console.log('Filtered cabinet recommendations:', parsedResponse.cabinet_recommendations);
       }
 
-      // Turn-based logic: remove greeting on turn 2+
+      // Turn-based logic: enforce natural flow
       if (turnCount > 1) {
         parsedResponse.greeting = "";
-        console.log('Turn > 1: removed greeting');
+        console.log('Turn > 1: removed greeting for natural flow');
+        
+        // Ensure assessment doesn't just repeat user's symptoms
+        if (parsedResponse.assessment && parsedResponse.assessment.toLowerCase().includes('experiencing') && turnCount > 1) {
+          console.log('Turn > 1: detected symptom repetition, may need refinement');
+        }
       }
 
-      // Ensure all required fields exist
+      // Ensure all required fields exist with natural flow validation
       const requiredFields = ['greeting', 'assessment', 'need_more_info', 'follow_up_questions', 'cabinet_recommendations', 'shopping_recommendations', 'self_care', 'red_flags', 'disclaimer'];
       requiredFields.forEach(field => {
         if (parsedResponse[field] === undefined || parsedResponse[field] === null) {
@@ -226,6 +192,24 @@ Only include cabinet items in cabinet_recommendations; use shopping_recommendati
           }
         }
       });
+
+      // Validate natural flow requirements
+      if (turnCount === 1) {
+        // Turn 1: Must have greeting and follow-up questions
+        if (!parsedResponse.greeting || parsedResponse.greeting.trim() === '') {
+          parsedResponse.greeting = `Hello ${member?.name || 'there'}, I'm Dr. AI. I can see you need medical assistance.`;
+        }
+        if (!parsedResponse.need_more_info || parsedResponse.follow_up_questions.length === 0) {
+          parsedResponse.need_more_info = true;
+          parsedResponse.follow_up_questions = ['Please provide more details about the symptoms.'];
+        }
+      } else {
+        // Turn 2+: No greeting, focus on recommendations
+        parsedResponse.greeting = '';
+        if (parsedResponse.need_more_info && parsedResponse.follow_up_questions.length === 0) {
+          parsedResponse.need_more_info = false;
+        }
+      }
 
       console.log('=== FINAL RESPONSE ===');
       console.log('Status: response ready');
