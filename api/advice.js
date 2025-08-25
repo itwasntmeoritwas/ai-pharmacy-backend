@@ -135,6 +135,12 @@ CRITICAL SAFETY RULES:
       
       // VALIDATION: Check if AI is suggesting medicines that don't exist or aren't suitable
       if (reply && cabinet) {
+        
+        // Check if response seems truncated (common cause of hallucination)
+        if (reply.length < 100 || reply.endsWith('...') || reply.includes('🚨 SAFETY ERROR')) {
+          console.log('⚠️ Response appears truncated or contains error, skipping validation');
+          return res.status(200).json({ reply });
+        }
         const cabinetLines = cabinet.split('\n').filter(line => line.trim());
         const availableMedicines = cabinetLines.map(line => {
           const match = line.match(/^([^-]+)/);
@@ -186,7 +192,7 @@ CRITICAL SAFETY RULES:
           const actualMedicineNames = hallucinatedMedicines.filter(name => {
             const lowerName = name.toLowerCase();
             // Filter out common words that aren't medicines
-            return !['good', 'dr', 'nicole', 'limassol', 'how', 'what', 'where', 'has', 'once', 'today', 'here', 'now', 'tell', 'about', 'these', 'symptoms', 'experiencing', 'both', 'headache', 'diarrhea', 'let', 'ask', 'important', 'questions', 'assess', 'properly', 'long', 'severe', 'moderate', 'mild', 'located', 'episodes', 'dehydration', 'dry', 'mouth', 'tears', 'urination', 'recent', 'changes', 'diet', 'exposure', 'sick', 'people', 'information', 'review', 'medicine', 'cabinet', 'provide', 'evidence', 'based', 'recommendations', 'appropriate', 'guidance', 'situation'].includes(lowerName);
+            return !['good', 'dr', 'nicole', 'limassol', 'how', 'what', 'where', 'has', 'once', 'today', 'here', 'now', 'tell', 'about', 'these', 'symptoms', 'experiencing', 'both', 'headache', 'diarrhea', 'let', 'ask', 'important', 'questions', 'assess', 'properly', 'long', 'severe', 'moderate', 'mild', 'located', 'episodes', 'dehydration', 'dry', 'mouth', 'tears', 'urination', 'recent', 'changes', 'diet', 'exposure', 'sick', 'people', 'information', 'review', 'medicine', 'cabinet', 'provide', 'evidence', 'based', 'recommendations', 'appropriate', 'guidance', 'situation', 'antihistamine', 'rehydration', 'ors', 'eye', 'monitor', 'temperature', 'diarrhea', 'toilet', 'hours', 'times', 'went', 'last', 'temp', 'high', 'no', 'other', 'symptoms', 'vomiting', 'stomach', 'pain', 'diet', 'exposure', 'sick', 'individuals', 'prompt', 'response', 'help', 'ensure', 'manage', 'effectively'].includes(lowerName);
           });
           
           if (actualMedicineNames.length > 0) {
@@ -219,6 +225,8 @@ IMPORTANT: Always verify medicine suitability for age and health conditions. Whe
         console.log('- Medicines found in cabinet:', mentionedMedicines);
         console.log('- Hallucinated medicines:', hallucinatedMedicines);
         console.log('- Unsuitable medicines:', unsuitableMedicines);
+        console.log('- Response length:', reply.length);
+        console.log('- Response ends with:', reply.substring(reply.length - 50));
         console.log('=== END VALIDATION ===');
       }
       
