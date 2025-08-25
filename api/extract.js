@@ -1,3 +1,5 @@
+import OpenAI from 'openai';
+
 export default async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -68,7 +70,7 @@ REQUIRED RESPONSE FORMAT (JSON array):
 [
   {
     "name": "Medicine name with dosage",
-    "category": "EXACT category name from the list below",
+    "category": "Category name (e.g., Fever & Pain Relief, First Aid & Wounds)",
     "reason": "Why this medicine is essential",
     "priority": "high/medium/low",
     "ageGroup": "Who this is for (e.g., Adults 18+, Children 2-12, All ages)",
@@ -558,85 +560,58 @@ CRITICAL REQUIREMENTS:
               notes: "Hypoallergenic preferred"
             },
             {
-              name: "Antibiotic for traveler's diarrhea (e.g., Azithromycin)",
-              category: "DIGESTIVE HEALTH",
-              reason: "To treat bacterial infections if diarrhea persists.",
+              name: "Aspirin 300mg",
+              category: "FEVER & PAIN RELIEF",
+              reason: "Pain relief and blood thinning",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "300-600mg every 4-6 hours",
+              notes: "Not recommended for children under 16"
+            },
+            {
+              name: "Cough Syrup (Dextromethorphan)",
+              category: "RESPIRATORY HEALTH",
+              reason: "Relieve dry cough",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "15ml every 4-6 hours",
+              notes: "Non-drowsy formula preferred"
+            },
+            {
+              name: "Nasal Decongestant (Xylometazoline)",
+              category: "RESPIRATORY HEALTH",
+              reason: "Relieve blocked nose",
+              priority: "medium",
+              ageGroup: "Adults 18+ years",
+              dosage: "2 sprays in each nostril up to 3 times daily",
+              notes: "Use for maximum 7 days only"
+            },
+            {
+              name: "Eye Drops (Sodium Chloride)",
+              category: "FIRST AID & WOUND CARE",
+              reason: "Rinse irritated eyes",
+              priority: "medium",
+              ageGroup: "All ages",
+              dosage: "1-2 drops as needed",
+              notes: "Sterile saline solution for eye irrigation"
+            },
+            {
+              name: "Digital Thermometer",
+              category: "EMERGENCY & MONITORING",
+              reason: "Monitor body temperature",
               priority: "high",
-              ageGroup: "Adults 18+ years",
-              dosage: "6 tablets",
-              notes: "To treat bacterial infections if diarrhea persists."
+              ageGroup: "All ages",
+              dosage: "Oral, underarm, or rectal use",
+              notes: "Essential for fever monitoring"
             },
             {
-              name: "Insect repellent (DEET-based)",
-              category: "DIGESTIVE HEALTH",
-              reason: "To protect against mosquito bites and reduce the risk of dengue and other mosquito-borne diseases.",
-              priority: "high",
-              ageGroup: "Adults 18+ years",
-              dosage: "1 bottle",
-              notes: "To protect against mosquito bites and reduce the risk of dengue and other mosquito-borne diseases."
-            },
-            {
-              name: "Sunscreen (SPF 30 or higher)",
-              category: "DIGESTIVE HEALTH",
-              reason: "To protect against sunburn, especially in outdoor settings.",
+              name: "Blood Pressure Monitor",
+              category: "EMERGENCY & MONITORING",
+              reason: "Monitor blood pressure",
               priority: "medium",
               ageGroup: "Adults 18+ years",
-              dosage: "1 bottle",
-              notes: "To protect against sunburn, especially in outdoor settings."
-            },
-            {
-              name: "First aid kit (band-aids, antiseptic wipes, etc.)",
-              category: "DIGESTIVE HEALTH",
-              reason: "For minor injuries and cuts that may occur during travel.",
-              priority: "medium",
-              ageGroup: "Adults 18+ years",
-              dosage: "1 kit",
-              notes: "For minor injuries and cuts that may occur during travel."
-            },
-            {
-              name: "Hepatitis A",
-              category: "DIGESTIVE HEALTH",
-              reason: "Check with your doctor for destination-specific requirements",
-              priority: "medium",
-              ageGroup: "Adults 18+ years",
-              dosage: "Check with your doctor for destination-specific requirements",
-              notes: "Check with your doctor for destination-specific requirements"
-            },
-            {
-              name: "Hepatitis B",
-              category: "DIGESTIVE HEALTH",
-              reason: "Check with your doctor for destination-specific requirements",
-              priority: "medium",
-              ageGroup: "Adults 18+ years",
-              dosage: "Check with your doctor for destination-specific requirements",
-              notes: "Check with your doctor for destination-specific requirements"
-            },
-            {
-              name: "Typhoid",
-              category: "DIGESTIVE HEALTH",
-              reason: "Check with your doctor for destination-specific requirements",
-              priority: "medium",
-              ageGroup: "Adults 18+ years",
-              dosage: "Check with your doctor for destination-specific requirements",
-              notes: "Check with your doctor for destination-specific requirements"
-            },
-            {
-              name: "Japanese Encephalitis (if traveling to rural areas)",
-              category: "DIGESTIVE HEALTH",
-              reason: "Check with your doctor for destination-specific requirements",
-              priority: "medium",
-              ageGroup: "Adults 18+ years",
-              dosage: "Check with your doctor for destination-specific requirements",
-              notes: "Check with your doctor for destination-specific requirements"
-            },
-            {
-              name: "Tetanus-Diphtheria-Pertussis (Tdap) booster if not up to date",
-              category: "DIGESTIVE HEALTH",
-              reason: "Check with your doctor for destination-specific requirements",
-              priority: "medium",
-              ageGroup: "Adults 18+ years",
-              dosage: "Check with your doctor for destination-specific requirements",
-              notes: "Check with your doctor for destination-specific requirements"
+              dosage: "Use as directed by healthcare provider",
+              notes: "Important for those with hypertension"
             }
           ],
           message: "Fallback essential medicines list (AI generation failed) - 20 medicines",
@@ -660,7 +635,6 @@ CRITICAL REQUIREMENTS:
         }
         console.log('OpenAI API key is configured');
         
-        // Use require instead of import for Vercel compatibility
         const OpenAI = require('openai');
         const openai = new OpenAI({
           apiKey: process.env.OPENAI_API_KEY,
@@ -703,7 +677,7 @@ REQUIRED RESPONSE FORMAT (JSON):
   "manufacturerCountry": "Country if visible",
   "batchNumber": "Batch number if visible, otherwise null",
   "lotNumber": "Lot number if visible, otherwise null",
-  "prescriptionOnly": true/false if stated, otherwise null",
+  "prescriptionOnly": true/false if stated, otherwise null,
   "contraindications": ["array of contraindications if visible"],
   "minAge": "minimum age if stated, otherwise null",
   "maxAge": "maximum age if stated, otherwise null",
@@ -819,7 +793,7 @@ LOOK AT THE IMAGES AND TELL ME EXACTLY WHAT YOU SEE WRITTEN ON THE PACKAGE. DO N
         }
 
         if (potentialHallucination) {
-          console.log('⚠️ WARNING: AI may be hallucinating common medicine patterns instead of reading actual text');
+          console.log('🚨 WARNING: AI may be hallucinating common medicine patterns instead of reading actual text');
         }
 
         return res.status(200).json(extractedData);
@@ -872,6 +846,13 @@ ${body.members ? JSON.stringify(body.members, null, 2) : 'No family members spec
 EXISTING MEDICINE CABINET:
 ${body.medicineSummary || 'No existing medicines'}
 
+CRITICAL RULES FOR MEDICINE SUGGESTIONS:
+1. FROM CABINET: You MUST ONLY suggest medicines that are explicitly listed in the EXISTING MEDICINE CABINET above
+2. DO NOT invent or hallucinate medicines that are not in the cabinet
+3. If the cabinet is empty or doesn't contain relevant medicines, return an empty "fromCabinet" array
+4. Each medicine in "fromCabinet" must exactly match a medicine name from the cabinet list
+5. If you're unsure whether a medicine exists in the cabinet, DO NOT include it
+
 TASK: Create a COMPREHENSIVE and PERSONALIZED travel pack considering:
 
 1. DESTINATION-SPECIFIC HEALTH RISKS:
@@ -896,7 +877,7 @@ REQUIRED RESPONSE FORMAT (JSON):
 {
   "fromCabinet": [
     {
-      "name": "Medicine name with dosage",
+      "name": "Medicine name with dosage (MUST EXIST in cabinet)",
       "reason": "Why to take this from existing supply",
       "qty": "Quantity to pack",
       "priority": "high/medium/low"
@@ -920,7 +901,8 @@ IMPORTANT:
 - Consider family member ages and health conditions
 - Prioritize destination-specific risks
 - Include both preventive and treatment medications
-- Be comprehensive but practical`;
+- Be comprehensive but practical
+- NEVER suggest medicines for "fromCabinet" unless they are explicitly listed in the EXISTING MEDICINE CABINET above`;
 
         console.log('Sending travel pack request to OpenAI...');
         const response = await openai.chat.completions.create({
@@ -952,9 +934,38 @@ IMPORTANT:
         }
 
         console.log('Travel pack generated:', travelPackData);
+        
+        // VALIDATION: Ensure "fromCabinet" only contains medicines that actually exist
+        if (travelPackData.fromCabinet && Array.isArray(travelPackData.fromCabinet)) {
+          const availableMedicines = body.availableMedicines || [];
+          const availableMedicineNames = availableMedicines.map(m => m.name.toLowerCase());
+          
+          console.log('Available medicines in cabinet:', availableMedicineNames);
+          console.log('AI suggested from cabinet:', travelPackData.fromCabinet.map(item => item.name));
+          
+          // Filter out medicines that don't exist in the cabinet
+          const validatedFromCabinet = travelPackData.fromCabinet.filter(item => {
+            const itemName = item.name.toLowerCase();
+            const exists = availableMedicineNames.some(availableName => 
+              availableName.includes(itemName) || itemName.includes(availableName)
+            );
+            
+            if (!exists) {
+              console.log(`⚠️ REMOVING non-existent medicine from cabinet suggestions: "${item.name}"`);
+            }
+            
+            return exists;
+          });
+          
+          if (validatedFromCabinet.length !== travelPackData.fromCabinet.length) {
+            console.log(`⚠️ Filtered out ${travelPackData.fromCabinet.length - validatedFromCabinet.length} non-existent medicines`);
+            travelPackData.fromCabinet = validatedFromCabinet;
+          }
+        }
+        
         return res.status(200).json({
           ...travelPackData,
-          message: `AI-generated personalized travel pack for ${body.city || 'your destination'}`,
+          message: `AI-generated personalized travel pack for ${body.city || body.destination || 'your destination'}`,
           generatedAt: new Date().toISOString()
         });
 
@@ -1020,7 +1031,7 @@ IMPORTANT:
           priority: "high",
           ageGroup: "Adults 18+ years",
           dosage: "200-400mg every 4-6 hours",
-              notes: "Good for muscle pain, inflammation, and period pain"
+          notes: "Good for muscle pain, inflammation, and period pain"
         },
         {
           name: "Betadine Antiseptic (Povidone-iodine)",
