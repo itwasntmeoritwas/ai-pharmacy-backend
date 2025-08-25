@@ -852,6 +852,24 @@ CRITICAL RULES FOR MEDICINE SUGGESTIONS:
 3. If the cabinet is empty or doesn't contain relevant medicines, return an empty "fromCabinet" array
 4. Each medicine in "fromCabinet" must exactly match a medicine name from the cabinet list
 5. If you're unsure whether a medicine exists in the cabinet, DO NOT include it
+6. NEVER suggest medicines you cannot see explicitly listed above
+
+DESTINATION-SPECIFIC REQUIREMENTS:
+You MUST provide HIGHLY SPECIFIC recommendations for ${body.city || 'this destination'}:
+
+- CHINA: Focus on food/water safety, air pollution, tropical diseases, traditional medicine interactions
+- SRI LANKA: Focus on tropical diseases, water safety, mosquito-borne illnesses, heat-related issues
+- THAILAND: Focus on food safety, tropical diseases, mosquito protection, heat and humidity
+- INDIA: Focus on food/water safety, tropical diseases, air pollution, heat-related issues
+- AFRICA: Focus on malaria, yellow fever, water safety, tropical diseases
+- EUROPE: Focus on altitude sickness (if applicable), food safety, climate adaptation
+- USA/CANADA: Focus on climate adaptation, altitude (if applicable), local health risks
+
+FAMILY MEMBER CONSIDERATIONS:
+- CHILDREN (under 12): MUST include child-specific medicines, age-appropriate dosages, child-friendly formulations
+- INFANTS (under 2): Special considerations for liquid medicines, fever management, hydration
+- ELDERLY: Consider chronic conditions, medication interactions, mobility issues
+- PREGNANT WOMEN: Safe medications, avoiding contraindicated drugs
 
 TASK: Create a COMPREHENSIVE and PERSONALIZED travel pack considering:
 
@@ -861,17 +879,21 @@ TASK: Create a COMPREHENSIVE and PERSONALIZED travel pack considering:
    - Climate and altitude considerations
    - Local healthcare availability
    - Required vaccinations
+   - Air quality and pollution issues
+   - Local insect and animal risks
 
 2. FAMILY MEMBER CONSIDERATIONS:
    - Ages and health conditions
    - Allergies and sensitivities
    - Existing medications
    - Special needs (pregnancy, chronic conditions)
+   - Child-specific health risks and needs
 
 3. TRAVEL DURATION:
    - Short vs. long-term needs
    - Refill requirements
    - Emergency supplies
+   - Seasonal considerations
 
 REQUIRED RESPONSE FORMAT (JSON):
 {
@@ -891,28 +913,41 @@ REQUIRED RESPONSE FORMAT (JSON):
       "priority": "high/medium/low"
     }
   ],
-  "healthAdvice": "Specific health advice for this destination",
-  "vaccinations": ["List of recommended vaccinations"],
-  "precautions": ["List of health precautions for this destination"]
+  "healthAdvice": "SPECIFIC health advice for ${body.city || 'this destination'} - be detailed and destination-specific",
+  "vaccinations": ["List of recommended vaccinations for ${body.city || 'this destination'}"],
+  "precautions": ["List of SPECIFIC health precautions for ${body.city || 'this destination'}"]
 }
 
 IMPORTANT: 
-- Be SPECIFIC to the destination (e.g., Sri Lanka = tropical diseases, water safety)
-- Consider family member ages and health conditions
-- Prioritize destination-specific risks
+- Be HIGHLY SPECIFIC to the destination (e.g., China = air pollution, food safety, tropical diseases)
+- Consider family member ages and health conditions SPECIFICALLY
+- Prioritize destination-specific risks above all else
 - Include both preventive and treatment medications
 - Be comprehensive but practical
-- NEVER suggest medicines for "fromCabinet" unless they are explicitly listed in the EXISTING MEDICINE CABINET above`;
+- NEVER suggest medicines for "fromCabinet" unless they are explicitly listed in the EXISTING MEDICINE CABINET above
+- If traveling with children, MUST include child-specific recommendations
+- Make recommendations as specific as possible to the exact destination`;
 
         console.log('Sending travel pack request to OpenAI...');
         const response = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: 'You are a travel medicine specialist with expertise in destination-specific health risks and personalized travel medicine recommendations.' },
+            { 
+              role: 'system', 
+              content: `You are a travel medicine specialist with expertise in destination-specific health risks and personalized travel medicine recommendations.
+
+CRITICAL RULES YOU MUST FOLLOW:
+1. NEVER suggest medicines for "fromCabinet" unless they are explicitly listed in the user's medicine cabinet
+2. If you cannot see a medicine name in the cabinet list, DO NOT suggest it
+3. Be HIGHLY SPECIFIC to the destination mentioned
+4. Consider family member ages, especially children
+5. Focus on destination-specific health risks
+6. Provide detailed, actionable advice for the specific location`
+            },
             { role: 'user', content: travelPackPrompt }
           ],
           max_tokens: 2000,
-          temperature: 0.1,
+          temperature: 0.0, // Zero temperature for maximum consistency
         });
 
         const content = response.choices[0]?.message?.content;
@@ -940,27 +975,52 @@ IMPORTANT:
           const availableMedicines = body.availableMedicines || [];
           const availableMedicineNames = availableMedicines.map(m => m.name.toLowerCase());
           
+          console.log('=== CABINET VALIDATION ===');
           console.log('Available medicines in cabinet:', availableMedicineNames);
           console.log('AI suggested from cabinet:', travelPackData.fromCabinet.map(item => item.name));
+          console.log('Total available medicines:', availableMedicines.length);
+          console.log('Total AI suggestions:', travelPackData.fromCabinet.length);
           
           // Filter out medicines that don't exist in the cabinet
           const validatedFromCabinet = travelPackData.fromCabinet.filter(item => {
             const itemName = item.name.toLowerCase();
-            const exists = availableMedicineNames.some(availableName => 
-              availableName.includes(itemName) || itemName.includes(availableName)
+            
+            // Check for exact matches first
+            let exists = availableMedicineNames.some(availableName => 
+              availableName === itemName
             );
             
+            // If no exact match, check for partial matches (more strict)
             if (!exists) {
-              console.log(`⚠️ REMOVING non-existent medicine from cabinet suggestions: "${item.name}"`);
+              exists = availableMedicineNames.some(availableName => {
+                // Check if the suggested medicine name is contained within an available medicine name
+                // OR if the available medicine name is contained within the suggested name
+                return availableName.includes(itemName) || itemName.includes(availableName);
+              });
+            }
+            
+            if (!exists) {
+              console.log(`🚨 REMOVING non-existent medicine: "${item.name}" - NOT FOUND in cabinet`);
+              console.log(`   Available medicines:`, availableMedicineNames);
+            } else {
+              console.log(`✅ Medicine validated: "${item.name}" - FOUND in cabinet`);
             }
             
             return exists;
           });
           
           if (validatedFromCabinet.length !== travelPackData.fromCabinet.length) {
-            console.log(`⚠️ Filtered out ${travelPackData.fromCabinet.length - validatedFromCabinet.length} non-existent medicines`);
+            console.log(`⚠️ VALIDATION COMPLETE: Filtered out ${travelPackData.fromCabinet.length - validatedFromCabinet.length} non-existent medicines`);
+            console.log(`   Before validation: ${travelPackData.fromCabinet.length} medicines`);
+            console.log(`   After validation: ${validatedFromCabinet.length} medicines`);
             travelPackData.fromCabinet = validatedFromCabinet;
+          } else {
+            console.log(`✅ VALIDATION COMPLETE: All ${validatedFromCabinet.length} suggested medicines exist in cabinet`);
           }
+          
+          console.log('=== END VALIDATION ===');
+        } else {
+          console.log('No fromCabinet suggestions to validate');
         }
         
         return res.status(200).json({
