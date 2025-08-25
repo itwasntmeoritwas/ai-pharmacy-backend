@@ -145,7 +145,7 @@ PRACTICAL GUIDANCE RULES:
       const data = JSON.parse(raw);
       let reply = data?.choices?.[0]?.message?.content || '';
       
-      // VALIDATION: Check if AI is suggesting medicines that don't exist or aren't suitable
+      // SMART VALIDATION: Check for actual hallucinations without being overly aggressive
       if (reply && cabinet) {
         
         // Check if response seems truncated (common cause of hallucination)
@@ -167,7 +167,7 @@ PRACTICAL GUIDANCE RULES:
         const mentionedMedicines = [];
         const hallucinatedMedicines = [];
         
-        // Look for actual medicine names in the AI response (much more specific)
+        // Look for actual medicine names in the AI response (more specific and focused)
         const medicinePattern = /\b(?:Paracetamol|Ibuprofen|Aspirin|Nurofen|Advil|Motrin|Zomig|Aerius|Panmigran|Snip|Cetirizine|Loratadine|Loperamide|Azithromycin|Ciprofloxacin|Malarone|Doxycycline|Betadine|Hydrocortisone|Gauze|Tape|Thermometer|Blood|Pressure|Monitor|Cough|Syrup|Nasal|Decongestant|Eye|Drops|Antihistamine|Antacid|Antibiotic|Antimalarial|Insect|Repellent|Sunscreen|First|Aid|Kit|ORS|Rehydration|Salts)\b(?:\s+\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|tablets?|capsules?|bottles?|kits?|packets?))?/gi;
         const foundMedicines = reply.match(medicinePattern) || [];
         
@@ -196,41 +196,31 @@ PRACTICAL GUIDANCE RULES:
           }
         });
         
-        // CRITICAL: If AI is hallucinating medicines, completely reject the response
+        // SMART VALIDATION: Only warn about actual hallucination, don't replace entire response
         if (hallucinatedMedicines.length > 0) {
-          console.log('🚨 CRITICAL ERROR: AI is hallucinating medicines not in cabinet:', hallucinatedMedicines);
+          console.log('⚠️ WARNING: AI mentioned medicines not in cabinet:', hallucinatedMedicines);
           
-          // Only reject if these are actually medicine names, not common words
-          const actualMedicineNames = hallucinatedMedicines.filter(name => {
+          // Filter out generic medicine names that are common recommendations
+          const genericMedicineNames = ['paracetamol', 'acetaminophen', 'ibuprofen', 'aspirin', 'antihistamine', 'decongestant', 'cough syrup', 'oral rehydration', 'ors', 'probiotics'];
+          const actualHallucinatedNames = hallucinatedMedicines.filter(name => {
             const lowerName = name.toLowerCase();
-            // Filter out common words that aren't medicines
-            return !['good', 'dr', 'nicole', 'limassol', 'how', 'what', 'where', 'has', 'once', 'today', 'here', 'now', 'tell', 'about', 'these', 'symptoms', 'experiencing', 'both', 'headache', 'diarrhea', 'let', 'ask', 'important', 'questions', 'assess', 'properly', 'long', 'severe', 'moderate', 'mild', 'located', 'episodes', 'dehydration', 'dry', 'mouth', 'tears', 'urination', 'recent', 'changes', 'diet', 'exposure', 'sick', 'people', 'information', 'review', 'medicine', 'cabinet', 'provide', 'evidence', 'based', 'recommendations', 'appropriate', 'guidance', 'situation', 'antihistamine', 'rehydration', 'ors', 'eye', 'monitor', 'temperature', 'diarrhea', 'toilet', 'hours', 'times', 'went', 'last', 'temp', 'high', 'no', 'other', 'symptoms', 'vomiting', 'stomach', 'pain', 'diet', 'exposure', 'sick', 'individuals', 'prompt', 'response', 'help', 'ensure', 'manage', 'effectively'].includes(lowerName);
+            // Don't flag generic medicine names as hallucinations - they're common recommendations
+            return !genericMedicineNames.some(generic => lowerName.includes(generic));
           });
           
-          if (actualMedicineNames.length > 0) {
-            reply = `🚨 SAFETY ERROR: I apologize, but I made a serious mistake. I suggested medicines that don't exist in your cabinet: ${actualMedicineNames.join(', ')}.
-
-This is a critical safety issue. Please DO NOT trust this response.
-
-For ${member?.name || 'this person'} with ${messages[messages.length - 1]?.text || 'these symptoms'}, I recommend:
-
-1. **Consult a healthcare professional immediately**
-2. **Do not give any medicine without proper medical advice**
-3. **Focus on comfort measures** (rest, hydration, cool compress for headache)
-
-I apologize for this error. Your safety is my top priority.`;
+          if (actualHallucinatedNames.length > 0) {
+            console.log('🚨 ACTUAL HALLUCINATION detected:', actualHallucinatedNames);
+            // Add a small warning at the end instead of replacing entire response
+            reply += `\n\n⚠️ Note: I mentioned some medicines that may not be in your cabinet. Please verify availability with your pharmacist.`;
           } else {
-            console.log('✅ False positive detected - no actual medicines hallucinated, proceeding with response');
+            console.log('✅ Generic medicine names detected - these are normal recommendations, not hallucinations');
           }
         }
-        // If AI suggested unsuitable medicines, add strong warning
-        else if (unsuitableMedicines.length > 0) {
+        // If AI suggested unsuitable medicines, add gentle warning
+        if (unsuitableMedicines.length > 0) {
           console.log('⚠️ WARNING: AI suggested unsuitable medicines:', unsuitableMedicines);
-          reply = `⚠️ SAFETY WARNING: I notice I suggested some medicines that aren't suitable for ${member?.name || 'this person'}. Please double-check with a healthcare professional before giving any medicine.
-
-${reply}
-
-IMPORTANT: Always verify medicine suitability for age and health conditions. When in doubt, consult a doctor or pharmacist.`;
+          // Add a gentle warning at the end instead of replacing the response
+          reply += `\n\n⚠️ Safety Note: Some medicines I mentioned may not be suitable for ${member?.name || 'this person'}. Please consult your pharmacist for age-appropriate options.`;
         }
         
         console.log('Validation results:');
