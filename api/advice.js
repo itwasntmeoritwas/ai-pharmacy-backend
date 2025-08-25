@@ -212,13 +212,15 @@ Only include cabinet items in cabinet_recommendations; use shopping_recommendati
       // Ensure all required fields exist
       const requiredFields = ['greeting', 'assessment', 'need_more_info', 'follow_up_questions', 'cabinet_recommendations', 'shopping_recommendations', 'self_care', 'red_flags', 'disclaimer'];
       requiredFields.forEach(field => {
-        if (!parsedResponse[field]) {
+        if (parsedResponse[field] === undefined || parsedResponse[field] === null) {
           if (field === 'cabinet_recommendations' || field === 'shopping_recommendations' || field === 'follow_up_questions') {
             parsedResponse[field] = [];
           } else if (field === 'self_care' || field === 'red_flags') {
             parsedResponse[field] = [];
           } else if (field === 'need_more_info') {
             parsedResponse[field] = false;
+          } else if (field === 'greeting') {
+            parsedResponse[field] = '';
           } else {
             parsedResponse[field] = 'Information not available';
           }
